@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      width: 350px;
+      background: #f5f5f5;
+    }
+
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    h3 {
+      margin-bottom: 5px;
+      color: #333;
+    }
+
+    /* ================= LOGIN PAGE ================= */
+    #loginPage {
+      padding: 40px 20px;
+      background: white;
+      min-height: 300px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    #loginPage h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    #loginPage p {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+
+    #loginPage img {
+      width: 80px;
+      margin-bottom: 20px;
+      opacity: 0.7;
+    }
+
+    /* ================= DASHBOARD ================= */
+    #dashboardPage {
+      padding: 15px;
+      background: white;
+      min-height: 400px;
+      display: none;
+    }
+
+    #dashboardPage h1 {
+      font-size: 20px;
+    }
+
+    .wallet {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .wallet-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .wallet-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .wallet-item b {
+      font-size: 14px;
+    }
+
+    .wallet-item span {
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    /* ================= BUTTONS ================= */
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-login {
+      background: #000;
+      color: white;
+      font-size: 16px;
+      padding: 14px;
+    }
+
+    .btn-login svg {
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    .btn-scan {
+      background: #4CAF50;
+      color: white;
+    }
+
+    .btn-redeem {
+      background: #2196F3;
+      color: white;
+    }
+
+    .btn-logout {
+      background: #f44336;
+      color: white;
+      margin-top: 15px;
+    }
+
+    /* ================= FORMS ================= */
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      margin-bottom: 8px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+      font-size: 14px;
+    }
+
+    input:focus {
+      outline: none;
+      border: 1px solid #667eea;
+      box-shadow: 0 0 4px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-save-upi {
+      background: #ff9800;
+      color: white;
+      margin-top: 8px;
+    }
+
+    .message {
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 5px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      background: #f9f9f9;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+    }
+
+    .user-info img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin-right: 12px;
+    }
+
+    .user-info div {
+      flex: 1;
+    }
+
+    .user-info .email {
+      font-size: 12px;
+      color: #666;
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <!-- ================= LOGIN PAGE ================= -->
+  <div id="loginPage">
+    <img src="./Logo.png" />
+    <h1>AI Safe Prompt</h1>
+    <p>Login with Google to access your dashboard and start earning coins</p>
+    <button id="loginBtn" class="btn-login">Login with Google</button>
+  </div>
+
+  <!-- ================= DASHBOARD PAGE ================= -->
+  <div id="dashboardPage">
+    <h1> Dashboard</h1>
+
+    <div class="user-info">
+      <img id="userPicture" src="" alt="User" />
+      <div>
+        <b id="userName">User</b>
+        <div class="email" id="userEmail">email@example.com</div>
+      </div>
+    </div>
+
+    <div id="messageBox"></div>
+
+    <div class="wallet">
+      <div class="wallet-item">
+        <b>Total Coins:</b>
+        <span id="coins">0</span>
+      </div>
+      <div class="wallet-item">
+        <b>Today's Coins:</b>
+        <span id="dailyCoins">0</span>
+      </div>
+      <div class="wallet-item">
+        <b>Value:</b>
+        <span>Rs<span id="rupees">0.00</span></span>
+      </div>
+    </div>
+
+    <!-- <button class="btn-scan" id="scanBtn">Scan Text</button> -->
+
+    <div style="background: #f0f0f0; padding: 12px; border-radius: 6px; margin: 12px 0; text-align: center;">
+      <label><b> Masking:</b> 
+        <input type="checkbox" id="maskingToggle" style="width: auto; margin: 0 5px;" />
+        <span id="maskingStatus">OFF</span>
+      </label>
+    </div>
+
+    <label><b>UPI ID:</b></label>
+    <input type="text" id="upi" placeholder="example@upi" />
+    <button class="btn-save-upi" id="saveUpi">Save UPI</button>
+
+    <button class="btn-redeem" id="redeemBtn">Redeem (50 coins)</button>
+
+    <button class="btn-logout" id="logoutBtn">Logout</button>
+  </div>
+
+  <script src="popup.js"></script>
+
+</body>
+</html>

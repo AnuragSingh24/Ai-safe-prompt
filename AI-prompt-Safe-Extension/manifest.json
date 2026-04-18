@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "AI Safe Prompt",
+  "version": "1.0",
+  "description": "Mask sensitive data before sending prompts",
+
+  "permissions": ["storage", "activeTab", "scripting", "identity"],
+  "oauth2": {
+    "client_id": "YOUR_GOOGLE_CLIENT_ID",
+    "scopes": ["openid", "email", "profile"]
+  },
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_popup": "index.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
