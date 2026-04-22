@@ -331,79 +331,102 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   // ================= SCAN TEXT =================
-  document.getElementById("scanBtn").onclick = async () => {
-    const data = await chrome.storage.local.get(["jwtToken"]);
-    
-    if (!data.jwtToken) {
-      showMessage("❌ Please login first", "error");
-      return;
-    }
-
-    try {
-      const res = await fetch("http://localhost:5000/api/scan", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${data.jwtToken}`
-        },
-        body: JSON.stringify({})
-      });
-
-      const result = await res.json();
-
-      if (result.success) {
-        coinsEl.innerText = result.totalCoins;
-        document.getElementById("dailyCoins").innerText = result.dailyCoins;
-        rupeesEl.innerText = (result.totalCoins * 0.1).toFixed(2);
-        showMessage(`🎉 +${result.coinsEarned} coins earned! (Daily: ${result.dailyCoins})`, "success");
-      } else {
-        showMessage("❌ Scan failed", "error");
+  const scanBtn = document.getElementById("scanBtn");
+  if (scanBtn) {
+    scanBtn.onclick = async () => {
+      const data = await chrome.storage.local.get(["jwtToken"]);
+      
+      if (!data.jwtToken) {
+        showMessage("❌ Please login first", "error");
+        return;
       }
-    } catch (err) {
-      console.error("Scan error:", err);
-      showMessage("❌ Failed to scan", "error");
-    }
-  };
+
+      try {
+        const res = await fetch("http://localhost:5000/api/scan", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${data.jwtToken}`
+          },
+          body: JSON.stringify({})
+        });
+
+        const result = await res.json();
+
+        if (result.success) {
+          coinsEl.innerText = result.totalCoins;
+          document.getElementById("dailyCoins").innerText = result.dailyCoins;
+          rupeesEl.innerText = (result.totalCoins * 0.1).toFixed(2);
+          showMessage(`🎉 +${result.coinsEarned} coins earned! (Daily: ${result.dailyCoins})`, "success");
+        } else {
+          showMessage("❌ Scan failed", "error");
+        }
+      } catch (err) {
+        console.error("Scan error:", err);
+        showMessage("❌ Failed to scan", "error");
+      }
+    };
+  }
 
   // ================= SAVE UPI =================
-  document.getElementById("saveUpi").onclick = async () => {
-    const upi = document.getElementById("upi").value;
-    const data = await chrome.storage.local.get(["jwtToken"]);
+  const saveUpiBtn = document.getElementById("saveUpi");
+  console.log("🔍 Save UPI button found:", !!saveUpiBtn);
+  
+  if (saveUpiBtn) {
+    saveUpiBtn.onclick = async () => {
+      console.log("🔷 SAVE UPI BUTTON CLICKED!");
+      
+      const upiInput = document.getElementById("upi");
+      const upi = upiInput ? upiInput.value : "";
+      console.log("📝 UPI input value:", upi);
 
-    if (!data.jwtToken) {
-      showMessage("❌ Please login first", "error");
-      return;
-    }
+      const data = await chrome.storage.local.get(["jwtToken"]);
+      console.log("🔑 JWT Token retrieved:", !!data.jwtToken);
 
-    if (!upi || !upi.includes("@")) {
-      showMessage("❌ Invalid UPI ID", "error");
-      return;
-    }
-
-    try {
-      const res = await fetch("http://localhost:5000/api/save-upi", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${data.jwtToken}`
-        },
-        body: JSON.stringify({ upi })
-      });
-
-      const result = await res.json();
-
-      if (result.success) {
-        await chrome.storage.local.set({ upi });
-        showMessage("✅ UPI ID Saved to Backend Successfully", "success");
-        console.log("✅ UPI saved to MongoDB:", upi);
-      } else {
-        showMessage("❌ Failed to save UPI: " + (result.error || "Unknown error"), "error");
+      if (!data.jwtToken) {
+        showMessage("❌ Please login first", "error");
+        console.warn("⚠️ No JWT token found");
+        return;
       }
-    } catch (err) {
-      console.error("Save UPI error:", err);
-      showMessage("❌ Failed to save UPI", "error");
-    }
-  };
+
+      if (!upi || !upi.includes("@")) {
+        showMessage("❌ Invalid UPI ID", "error");
+        console.warn("⚠️ Invalid UPI format:", upi);
+        return;
+      }
+
+      try {
+        console.log("🚀 Sending request to backend...");
+        const res = await fetch("http://localhost:5000/api/save-upi", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${data.jwtToken}`
+          },
+          body: JSON.stringify({ upi })
+        });
+
+        console.log("📥 Response status:", res.status);
+        const result = await res.json();
+        console.log("📥 Response data:", result);
+
+        if (result.success) {
+          await chrome.storage.local.set({ upi });
+          showMessage("✅ UPI ID Saved to Backend Successfully", "success");
+          console.log("✅ UPI saved to MongoDB:", upi);
+        } else {
+          showMessage("❌ Failed to save UPI: " + (result.error || "Unknown error"), "error");
+          console.error("❌ Backend error:", result);
+        }
+      } catch (err) {
+        console.error("❌ Save UPI error:", err);
+        console.error("❌ Error details:", err.message, err.stack);
+        showMessage("❌ Failed to save UPI: " + err.message, "error");
+      }
+    };
+  } else {
+    console.error("❌ Save UPI button NOT found in DOM");
+  }
 
   // ================= REDEEM =================
   document.getElementById("redeemBtn").onclick = async () => {
