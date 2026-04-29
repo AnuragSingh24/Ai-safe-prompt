@@ -6,12 +6,18 @@
 
   "permissions": ["storage", "activeTab", "scripting", "identity"],
   "oauth2": {
-    "client_id": "YOUR_GOOGLE_CLIENT_ID",
+    "client_id": "766985052649-07uq48gd6mrjroqmbpk9ing77asr3j3j.apps.googleusercontent.com",
     "scopes": ["openid", "email", "profile"]
   },
   "host_permissions": ["<all_urls>"],
+  
+
+  
   "action": {
-    "default_popup": "index.html"
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "/Logo.png"
+    } 
   },
   "content_scripts": [
     {

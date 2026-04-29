@@ -76,20 +76,34 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function fetchCoinsFromBackend() {
     const data = await chrome.storage.local.get(["jwtToken"]);
 
-    if (!data.jwtToken) return null;
+    if (!data.jwtToken) {
+      console.warn("⚠️ No JWT token available for coin fetch");
+      return null;
+    }
 
     try {
+      console.log("🔷 Fetching coins from backend...");
       const res = await fetch("http://localhost:5000/api/profile", {
         method: "GET",
         headers: {
-          "Authorization": `Bearer ${data.jwtToken}`
+          "Authorization": `Bearer ${data.jwtToken}`,
+          "Content-Type": "application/json"
         }
       });
 
+      console.log("📊 Response status:", res.status);
+
+      if (!res.ok) {
+        console.error("❌ API returned error status:", res.status);
+        return null;
+      }
+
       const result = await res.json();
+      console.log("✅ Coins fetched successfully:", result);
       return result;
     } catch (err) {
-      console.error("Failed to fetch coins from backend:", err);
+      console.error("❌ Failed to fetch coins from backend:", err.message);
+      console.error("❌ Error details:", err);
       return null;
     }
   }
@@ -111,7 +125,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
 
       const result = await res.json();
-      
+
       if (result.success) {
         console.log(" Daily coin claimed!", result);
         return result;
@@ -140,10 +154,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       // 🔐 If user has credentials stored
       if (data.user && data.jwtToken) {
         console.log("✅ Found stored credentials for:", data.user.name);
-        
+
         // Validate token is still good
         const isValid = await isTokenValid(data.jwtToken);
-        
+
         if (!isValid) {
           console.warn("⚠️ Token validation failed - logging out");
           await chrome.storage.local.remove(["user", "jwtToken"]);
@@ -155,68 +169,76 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         console.log("✅ User is logged in:", data.user.name);
 
-      // Show Dashboard, Hide Login
-      loginPage.style.display = "none";
-      dashboardPage.style.display = "block";
+        // Show Dashboard, Hide Login
+        loginPage.style.display = "none";
+        dashboardPage.style.display = "block";
 
-      // Display user info
-      userName.innerText = data.user.name || "User";
-      userEmail.innerText = data.user.email || "email@example.com";
-      userPicture.src = data.user.picture || "";
+        // Display user info
+        userName.innerText = data.user.name || "User";
+        userEmail.innerText = data.user.email || "email@example.com";
+        userPicture.src = data.user.picture || "";
 
-      // 💰 Claim daily coin (1 coin per day automatically) - with error handling
-      try {
-        const claimResult = await claimDailyCoin();
-        if (claimResult?.success) {
-          showMessage(" +1 Daily coin credited!", "success");
+        // 💰 Claim daily coin (1 coin per day automatically) - with error handling
+        try {
+          const claimResult = await claimDailyCoin();
+          console.log("📝 Claim daily coin result:", claimResult);
+          if (claimResult?.success) {
+            showMessage(" +1 Daily coin credited!", "success");
+          }
+        } catch (err) {
+          console.error("Error claiming daily coin:", err);
+          // Continue loading UI even if claim fails
         }
-      } catch (err) {
-        console.error("Error claiming daily coin:", err);
-        // Continue loading UI even if claim fails
-      }
 
-      // Fetch coins from backend
-      const profileData = await fetchCoinsFromBackend();
-      if (profileData) {
-        const totalCoins = profileData.totalCoins || 0;
-        const dailyCoins = profileData.dailyCoins || 0;
-        const savedUpi = profileData.upi || "";
-        
-        coinsEl.innerText = totalCoins;
-        document.getElementById("dailyCoins").innerText = dailyCoins;
-        rupeesEl.innerText = (totalCoins * 0.1).toFixed(2);
-        
-        // Display saved UPI if it exists
-        if (savedUpi) {
-          document.getElementById("upi").value = savedUpi;
-          console.log("✅ Loaded saved UPI from backend:", savedUpi);
+        // Fetch coins from backend
+        console.log("🔷 Fetching profile data from backend...");
+        const profileData = await fetchCoinsFromBackend();
+        console.log("🔍 Profile data received:", profileData);
+
+        if (profileData) {
+          const totalCoins = profileData.totalCoins || 0;
+          const dailyCoins = profileData.dailyCoins || 0;
+          const savedUpi = profileData.upi || "";
+
+          console.log("💰 Setting coins - Total:", totalCoins, "Daily:", dailyCoins);
+          coinsEl.innerText = totalCoins;
+          console.log("✅ coinsEl.innerText set to:", coinsEl.innerText);
+          document.getElementById("dailyCoins").innerText = dailyCoins;
+          console.log("✅ dailyCoins element set to:", document.getElementById("dailyCoins").innerText);
+          rupeesEl.innerText = (totalCoins * 0.1).toFixed(2);
+
+          // Display saved UPI if it exists
+          if (savedUpi) {
+            document.getElementById("upi").value = savedUpi;
+            console.log("✅ Loaded saved UPI from backend:", savedUpi);
+          }
+
+          console.log("✅ Coins from backend - Total:", totalCoins, "Today:", dailyCoins, "UPI:", savedUpi);
+        } else {
+          // Fallback to local storage if backend not available
+          const points = data.points || 0;
+          console.warn("⚠️ profileData is null, using fallback");
+          coinsEl.innerText = points;
+          document.getElementById("dailyCoins").innerText = "0";
+          rupeesEl.innerText = (points * 0.1).toFixed(2);
+          console.log("⚠️ Backend unavailable, using local storage fallback");
         }
-        
-        console.log("✅ Coins from backend - Total:", totalCoins, "Today:", dailyCoins, "UPI:", savedUpi);
+
+        // Update masking toggle
+        const maskingToggle = document.getElementById("maskingToggle");
+        const maskingStatus = document.getElementById("maskingStatus");
+        const isEnabled = data.enabled !== false;
+        maskingToggle.checked = isEnabled;
+        maskingStatus.innerText = isEnabled ? "ON" : "OFF";
+
       } else {
-        // Fallback to local storage if backend not available
-        const points = data.points || 0;
-        coinsEl.innerText = points;
-        document.getElementById("dailyCoins").innerText = "0";
-        rupeesEl.innerText = (points * 0.1).toFixed(2);
-        console.log("⚠️ Backend unavailable, using local storage fallback");
+        console.log("❌ User not logged in");
+        console.log("Debug info - data.user:", !!data.user, "data.jwtToken:", !!data.jwtToken);
+
+        // Show Login, Hide Dashboard
+        loginPage.style.display = "block";
+        dashboardPage.style.display = "none";
       }
-
-      // Update masking toggle
-      const maskingToggle = document.getElementById("maskingToggle");
-      const maskingStatus = document.getElementById("maskingStatus");
-      const isEnabled = data.enabled !== false;
-      maskingToggle.checked = isEnabled;
-      maskingStatus.innerText = isEnabled ? "ON" : "OFF";
-
-    } else {
-      console.log("❌ User not logged in");
-      console.log("Debug info - data.user:", !!data.user, "data.jwtToken:", !!data.jwtToken);
-
-      // Show Login, Hide Dashboard
-      loginPage.style.display = "block";
-      dashboardPage.style.display = "none";
-    }
     } catch (err) {
       console.error("❌ CRITICAL ERROR in loadUI:", err);
       console.error("Error stack:", err.stack);
@@ -316,15 +338,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!confirmLogout) return;
 
     console.log("🔐 Starting logout process...");
-    
+
     // ✅ EXPLICITLY CLEAR ALL DATA
     await chrome.storage.local.remove(["user", "jwtToken", "points"]);
     await chrome.storage.local.set({ enabled: false }); // 🔐 Auto-disable masking on logout
-    
+
     // ✅ VERIFY DATA WAS CLEARED
     const verify = await chrome.storage.local.get(["user", "jwtToken", "enabled"]);
     console.log("🔐 Verification after logout:", verify);
-    
+
     showMessage("✅ Logged out successfully", "success");
     console.log("✅ User logged out, masking disabled");
     await loadUI();
@@ -335,7 +357,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (scanBtn) {
     scanBtn.onclick = async () => {
       const data = await chrome.storage.local.get(["jwtToken"]);
-      
+
       if (!data.jwtToken) {
         showMessage("❌ Please login first", "error");
         return;
@@ -371,11 +393,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ================= SAVE UPI =================
   const saveUpiBtn = document.getElementById("saveUpi");
   console.log("🔍 Save UPI button found:", !!saveUpiBtn);
-  
+
   if (saveUpiBtn) {
     saveUpiBtn.onclick = async () => {
       console.log("🔷 SAVE UPI BUTTON CLICKED!");
-      
+
       const upiInput = document.getElementById("upi");
       const upi = upiInput ? upiInput.value : "";
       console.log("📝 UPI input value:", upi);
@@ -429,53 +451,37 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ================= REDEEM =================
-  document.getElementById("redeemBtn").onclick = async () => {
-    const data = await chrome.storage.local.get(["jwtToken"]);
-    
-    if (!data.jwtToken) {
-      showMessage("❌ Please login first", "error");
-      return;
+ document.getElementById("redeemBtn").onclick = async () => {
+  const data = await chrome.storage.local.get(["jwtToken"]);
+
+  if (!data.jwtToken) {
+    showMessage("❌ Please login first", "error");
+    return;
+  }
+
+  try {
+    const res = await fetch("http://localhost:5000/api/redeem", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${data.jwtToken}`
+      },
+      body: JSON.stringify({ amount: 50 })
+    });
+
+    const result = await res.json();
+
+    if (result.success) {
+      showMessage("💰 Money sent to your UPI!", "success");
+      await loadUI();
+    } else {
+      showMessage("❌ " + result.error, "error");
     }
 
-    try {
-      // ✅ FETCH CURRENT COINS FROM BACKEND FIRST
-      const profileRes = await fetch("http://localhost:5000/api/profile", {
-        headers: { "Authorization": `Bearer ${data.jwtToken}` }
-      });
-
-      const profileData = await profileRes.json();
-      const totalCoins = profileData.totalCoins || 0;
-
-      if (totalCoins < 50) {
-        showMessage(`❌ Not enough coins (need 50, have ${totalCoins})`, "error");
-        return;
-      }
-
-      // ✅ SEND REDEEM REQUEST
-      const response = await fetch("http://localhost:5000/api/redeem", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${data.jwtToken}`
-        },
-        body: JSON.stringify({ amount: 50 })
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        coinsEl.innerText = result.remainingCoins;
-        rupeesEl.innerText = result.rupees.toFixed(2);
-        showMessage("✅ " + result.message, "success");
-        await loadUI();
-      } else {
-        showMessage("❌ Redemption failed: " + (result.error || "Unknown error"), "error");
-      }
-    } catch (err) {
-      console.error("Redeem error:", err);
-      showMessage("❌ Backend request failed", "error");
-    }
-  };
+  } catch (err) {
+    showMessage("❌ Redeem failed", "error");
+  }
+};
 
   // ================= INIT =================
   console.log("🟢 POPUP OPENED - DOMContentLoaded fired");
