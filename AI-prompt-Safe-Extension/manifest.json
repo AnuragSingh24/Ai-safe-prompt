@@ -3,8 +3,15 @@
   "name": "AI Safe Prompt",
   "version": "1.0",
   "description": "Mask sensitive data before sending prompts",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzo5S7niSeZNjevLY70RqUDjrWymdairSsIGs1bdeHHXWloOkiv67HnGGhpO2Is/vvYQUPPxGg5xrbty0C5llvoHH/dF+8fpziDTXXqQ6fL2md0xQMkWe6JKgDszn/c964BMnO17wF2ogan8HeXTAnEjuGc0mduk/LglW08DK06cLQbB0Iz1x7Tm4FTYOMHQURm15v+rk7LSGO3bxSWKQS4ptIRkcyU1S4IGITmlEVPDJvqXTQlpsBIUgZVMAjaPWSFEpKrz/0tln3MZNkZ0FV9066Tvr2Y3Ox0KnXaqgMimpHzA5s9qlLqmzd51sXVdNkgSWBSyjTxEvsSvxXfrhqQIDAQAB",
 
   "permissions": ["storage", "activeTab", "scripting", "identity"],
+  "icons": {
+    "16": "logo-icon.png",
+    "32": "logo-icon.png",
+    "48": "logo-icon.png",
+    "128": "logo-icon.png"
+  },
   "oauth2": {
     "client_id": "766985052649-07uq48gd6mrjroqmbpk9ing77asr3j3j.apps.googleusercontent.com",
     "scopes": ["openid", "email", "profile"]
@@ -22,7 +29,10 @@
   "action": {
     "default_popup": "index.html",
     "default_icon": {
-      "16": "/Logo.png"
+      "16": "logo-icon.png",
+      "32": "logo-icon.png",
+      "48": "logo-icon.png",
+      "128": "logo-icon.png"
     } 
   },
   "content_scripts": [

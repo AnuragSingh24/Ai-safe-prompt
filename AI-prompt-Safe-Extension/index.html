@@ -111,6 +111,53 @@
       margin-bottom: 14px;
     }
 
+    .brand-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid var(--line);
+      box-shadow: 0 8px 22px rgba(24, 49, 41, 0.08);
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      flex: 0 0 42px;
+      border-radius: 10px;
+      background: linear-gradient(145deg, rgba(47, 191, 143, 0.14), rgba(47, 111, 237, 0.12));
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .brand-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .brand-copy {
+      min-width: 0;
+    }
+
+    .brand-title {
+      font-size: 15px;
+      line-height: 1.15;
+      font-weight: 800;
+      color: var(--ink);
+    }
+
+    .brand-subtitle {
+      margin-top: 2px;
+      font-size: 12px;
+      line-height: 1.25;
+      color: var(--muted);
+    }
+
     .wallet {
       background:
         linear-gradient(135deg, rgba(20, 120, 93, 0.96), rgba(47, 111, 237, 0.92)),
@@ -456,7 +503,7 @@
   <!-- ================= LOGIN PAGE ================= -->
   <div id="loginPage">
     <div class="logo-ring">
-      <img src="./Logo.png" />
+      <img src="./logo-icon.png" alt="AI Safe Prompt logo" />
     </div>
     <h1>AI Safe Prompt</h1>
     <p>Login with Google to access your dashboard and start earning coins</p>
@@ -465,6 +512,16 @@
 
   <!-- ================= DASHBOARD PAGE ================= -->
   <div id="dashboardPage">
+    <div class="brand-bar stagger-in">
+      <div class="brand-icon">
+        <img src="./logo-icon.png" alt="AI Safe Prompt logo" />
+      </div>
+      <div class="brand-copy">
+        <div class="brand-title">AI Safe Prompt</div>
+        <div class="brand-subtitle">Privacy Firewall for AI prompts</div>
+      </div>
+    </div>
+
     <h1 class="stagger-in">Dashboard</h1>
 
     <div class="user-info stagger-in">
