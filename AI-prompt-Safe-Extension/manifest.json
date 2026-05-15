@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "AI Safe Prompt",
+  "version": "1.0",
+  "description": "Mask sensitive data before sending prompts",
+
+  "permissions": ["storage", "activeTab", "scripting", "identity"],
+  "oauth2": {
+    "client_id": "766985052649-07uq48gd6mrjroqmbpk9ing77asr3j3j.apps.googleusercontent.com",
+    "scopes": ["openid", "email", "profile"]
+  },
+  "host_permissions": [
+    "<all_urls>",
+    "http://127.0.0.1:8010/*",
+    "http://localhost:8010/*",
+    "http://127.0.0.1:8000/*",
+    "http://localhost:8000/*"
+  ],
+  
+
+  
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "/Logo.png"
+    } 
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

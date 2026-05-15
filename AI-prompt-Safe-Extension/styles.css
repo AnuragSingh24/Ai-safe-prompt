@@ -1,0 +1,5 @@
+/* Highlight class if needed later */
+.secret {
+  background-color: rgba(255, 0, 0, 0.2);
+  color: red;
+}
