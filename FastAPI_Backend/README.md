@@ -1,6 +1,80 @@
 # AI Safe Prompt FastAPI Backend
 
-Privacy scanning backend for the Chrome extension. It exposes a fast `/api/scan` endpoint that detects common secrets and personal data, returns risk metadata, and gives the extension an anonymized version of the pasted prompt.
+This service is the privacy firewall used by the Chrome extension. It receives prompt text, scans it for secrets and personal data, and returns a safer version that preserves as much prompt quality as possible.
+
+## What it does
+
+- powers the `POST /api/scan` endpoint used by the extension
+- runs multi-layer privacy detection
+- combines regex, heuristic, Presidio, and spaCy analysis
+- classifies risk as `low`, `medium`, `high`, or `critical`
+- returns quality-preserving anonymized text
+- supports large prompt scanning with chunk overlap
+
+## API endpoints
+
+### `GET /health`
+
+Returns a simple health payload:
+
+```json
+{"status":"ok"}
+```
+
+### `POST /api/scan`
+
+Request body:
+
+```json
+{
+  "text": "my email is user@example.com and key is sk-1234567890abcdef"
+}
+```
+
+Response includes:
+
+- `masked_text`
+- `risk`
+- `detections`
+- `detection_count`
+- `action`
+- `latency_ms`
+- `layers`
+
+## Scanner layers
+
+### Layer 1: normal masking
+
+Fast detector aligned with the extension behavior for:
+
+- API keys
+- passwords
+- JWTs
+- bearer tokens
+- cloud credentials
+- credit cards
+- email addresses
+- phone numbers
+- IP addresses
+- URLs
+- ID-like values
+
+### Layer 2: Presidio + spaCy
+
+Entity-aware detection for:
+
+- person names
+- locations
+- phone numbers
+- emails
+- credit cards
+- other supported Presidio entities
+
+The default NLP model is:
+
+```text
+en_core_web_sm
+```
 
 ## Run locally
 
@@ -13,24 +87,52 @@ python -m spacy download en_core_web_sm
 uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 ```
 
-Health check:
+Alternative:
 
 ```powershell
-curl http://127.0.0.1:8010/health
+.\.venv\Scripts\python.exe app\main.py
 ```
 
-Scan example:
+## Health check
+
+```text
+http://127.0.0.1:8010/health
+```
+
+## Example scan
 
 ```powershell
-curl -X POST http://127.0.0.1:8010/api/scan -H "Content-Type: application/json" -d "{\"text\":\"my email is user@example.com and key is sk-1234567890abcdef\"}"
+curl -X POST http://127.0.0.1:8010/api/scan -H "Content-Type: application/json" -d "{\"text\":\"Alice Johnson can be reached at alice@example.com and password=MySecretPassword123\"}"
 ```
 
-The extension calls this service when text is pasted or typed into common AI prompt editors.
+## Project layout
 
-## Scanner layers
+```text
+FastAPI_Backend/
+|- app/
+|  |- main.py
+|  |- pipeline.py
+|  |- anonymizer.py
+|  |- normal_masker.py
+|  |- presidio_detector.py
+|  |- detectors.py
+|  |- chunking.py
+|  |- risk.py
+|  |- cache.py
+|  `- schemas.py
+|- tests/
+|  `- test_privacy_pipeline.py
+|- requirements.txt
+`- README.md
+```
 
-- Regex and entropy detector runs first for API keys, JWTs, passwords, tokens, emails, phone numbers, credit cards, URLs, IPs, and ID-like values.
-- Presidio + spaCy `en_core_web_sm` runs after the fast detector for NER-style PII such as names and locations.
-- Large prompts are scanned in 3,000 character chunks with 200 character overlap.
-- Overlapping detections are deduplicated by risk and confidence.
-- If Presidio or the spaCy model is unavailable, the backend logs a warning and continues with regex-only masking.
+## Testing
+
+```powershell
+cd FastAPI_Backend
+python -m unittest discover -s tests
+```
+
+## Fallback behavior
+
+If Presidio or the spaCy model cannot be loaded, the backend still starts and falls back to regex-based masking so the extension continues to work.
