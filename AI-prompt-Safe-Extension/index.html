@@ -29,7 +29,8 @@
         radial-gradient(circle at 90% 0%, rgba(244, 163, 64, 0.18), transparent 28%),
         linear-gradient(145deg, #edf7f2 0%, #f8fbf7 55%, #eef2ff 100%);
       color: var(--ink);
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
 
     h1 {
@@ -274,7 +275,8 @@
     }
 
     /* ================= FORMS ================= */
-    input {
+    input,
+    textarea {
       width: 100%;
       padding: 10px;
       margin-top: 8px;
@@ -286,7 +288,15 @@
       transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
     }
 
-    input:focus {
+    textarea {
+      min-height: 86px;
+      resize: vertical;
+      line-height: 1.4;
+      font-family: inherit;
+    }
+
+    input:focus,
+    textarea:focus {
       outline: none;
       border: 1px solid var(--mint);
       box-shadow: 0 0 0 4px rgba(47, 191, 143, 0.16);
@@ -297,6 +307,16 @@
       background: var(--amber);
       color: white;
       margin-top: 8px;
+    }
+
+    .bug-report {
+      margin-top: 14px;
+    }
+
+    .btn-save-bug {
+      background: #6b5bd7;
+      color: white;
+      margin-top: 4px;
     }
 
     .message {
@@ -568,6 +588,12 @@
     <button class="btn-save-upi" id="saveUpi">Save UPI</button>
 
     <button class="btn-redeem" id="redeemBtn">Redeem (50 coins)</button>
+
+    <div class="bug-report">
+      <label><b>Report a Bug:</b></label>
+      <textarea id="bugDescription" maxlength="2000" placeholder="Write the problem you faced"></textarea>
+      <button class="btn-save-bug" id="saveBug">Save Bug</button>
+    </div>
 
     <button class="btn-logout" id="logoutBtn">Logout</button>
   </div>

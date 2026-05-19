@@ -11,6 +11,7 @@ This backend handles application data and account workflows for AI Safe Prompt. 
 - total coin balance
 - UPI storage
 - payout and redeem flows
+- bug report storage
 
 ## Tech stack
 
@@ -52,6 +53,7 @@ MONGODB_URI=your_mongodb_connection_string
 - `models/User.js`: user profile and total coin state
 - `models/DailyCoins.js`: per-day earned coin tracking
 - `models/Payout.js`: payout and redeem records
+- `models/BugReport.js`: user-submitted bug reports
 
 ## Main routes
 
@@ -59,6 +61,8 @@ MONGODB_URI=your_mongodb_connection_string
 - `GET /api/profile`
 - `POST /api/earn-coins`
 - `POST /api/save-upi`
+- `POST /api/bug-reports`
+- `GET /api/bug-reports`
 - `POST /api/redeem`
 - `GET /api/redeem-history`
 - `GET /api/debug/users`

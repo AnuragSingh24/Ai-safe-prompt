@@ -11,10 +11,18 @@ const User = require("./models/User");
 const DailyCoins = require("./models/DailyCoins");
 // const Payment = require("./models/Payment");
 const Payout = require("./models/Payout");
+const BugReport = require("./models/BugReport");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
+    return res.status(400).json({ error: "Invalid JSON body" });
+  }
+
+  next(err);
+});
 app.use(express.static("public"));
 
 // CONFIG
@@ -186,6 +194,65 @@ app.post("/api/save-upi", verifyJWT, async (req, res) => {
   } catch (err) {
     console.error("❌ Save UPI error:", err);
     res.status(500).json({ error: "Failed to save UPI" });
+  }
+});
+
+// ================= SAVE BUG REPORT ENDPOINT =================
+app.post("/api/bug-reports", verifyJWT, async (req, res) => {
+  try {
+    console.log("Bug report request from:", req.user.email);
+    const { description } = req.body;
+    const bugText = typeof description === "string" ? description.trim() : "";
+
+    if (!bugText) {
+      return res.status(400).json({ error: "Bug description is required" });
+    }
+
+    if (bugText.length < 5) {
+      return res.status(400).json({ error: "Please describe the bug in a little more detail" });
+    }
+
+    if (bugText.length > 2000) {
+      return res.status(400).json({ error: "Bug description must be 2000 characters or less" });
+    }
+
+    const bugReport = await BugReport.create({
+      userId: req.user.googleId,
+      email: req.user.email,
+      description: bugText
+    });
+
+    console.log("Bug report saved:", bugReport._id, "| User:", req.user.email);
+
+    res.status(201).json({
+      success: true,
+      message: "Bug report saved successfully",
+      bugReport: {
+        id: bugReport._id,
+        description: bugReport.description,
+        status: bugReport.status,
+        createdAt: bugReport.createdAt
+      }
+    });
+  } catch (err) {
+    console.error("Save bug report error:", err);
+    res.status(500).json({ error: "Failed to save bug report" });
+  }
+});
+
+app.get("/api/bug-reports", verifyJWT, async (req, res) => {
+  try {
+    const bugReports = await BugReport.find({ userId: req.user.googleId })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    res.json({
+      success: true,
+      bugReports
+    });
+  } catch (err) {
+    console.error("Fetch bug reports error:", err);
+    res.status(500).json({ error: "Failed to fetch bug reports" });
   }
 });
 
@@ -618,6 +685,12 @@ app.post("/api/redeem", verifyJWT, async (req, res) => {
     console.error("❌ Redeem error:", err);
     res.status(500).json({ error: "Redeem failed" });
   }
+});
+
+app.use("/api", (req, res) => {
+  res.status(404).json({
+    error: `API route not found: ${req.method} ${req.originalUrl}`
+  });
 });
 
 // ================= START SERVER =================

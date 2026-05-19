@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", async () => {
+  const NODE_API_BASE_URL = "https://ai-safe-prompt.onrender.com";
 
   const loginPage = document.getElementById("loginPage");
   const dashboardPage = document.getElementById("dashboardPage");
@@ -30,7 +31,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       // Try to fetch profile with token
-      const res = await fetch("http://localhost:5000/api/profile", {
+      const res = await fetch(`${NODE_API_BASE_URL}/api/profile`, {
         method: "GET",
         headers: { "Authorization": `Bearer ${jwtToken}` }
       });
@@ -156,7 +157,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     try {
       console.log("🔷 Fetching coins from backend...");
-      const res = await fetch("http://localhost:5000/api/profile", {
+      const res = await fetch(`${NODE_API_BASE_URL}/api/profile`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${data.jwtToken}`,
@@ -188,7 +189,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!data.jwtToken) return null;
 
     try {
-      const res = await fetch("http://localhost:5000/api/claim-daily-coin", {
+      const res = await fetch(`${NODE_API_BASE_URL}/api/claim-daily-coin`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -356,7 +357,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           try {
             // ✅ SEND TOKEN TO BACKEND
             const backendRes = await fetch(
-              "http://localhost:5000/api/auth/google",
+              `${NODE_API_BASE_URL}/api/auth/google`,
               {
                 method: "POST",
                 headers: {
@@ -433,7 +434,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       try {
-        const res = await fetch("http://localhost:5000/api/scan", {
+        const res = await fetch(`${NODE_API_BASE_URL}/api/scan`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -491,7 +492,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       try {
         console.log("🚀 Sending request to backend...");
-        const res = await fetch("http://localhost:5000/api/save-upi", {
+        const res = await fetch(`${NODE_API_BASE_URL}/api/save-upi`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -523,6 +524,64 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.error("❌ Save UPI button NOT found in DOM");
   }
 
+  // ================= SAVE BUG REPORT =================
+  const saveBugBtn = document.getElementById("saveBug");
+
+  if (saveBugBtn) {
+    saveBugBtn.onclick = async () => {
+      setButtonLoading(saveBugBtn, true);
+
+      const bugInput = document.getElementById("bugDescription");
+      const description = bugInput ? bugInput.value.trim() : "";
+      const data = await chrome.storage.local.get(["jwtToken"]);
+
+      if (!data.jwtToken) {
+        showMessage("Please login first", "error");
+        setButtonLoading(saveBugBtn, false);
+        return;
+      }
+
+      if (description.length < 5) {
+        showMessage("Please write a little more about the bug", "error");
+        setButtonLoading(saveBugBtn, false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${NODE_API_BASE_URL}/api/bug-reports`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${data.jwtToken}`
+          },
+          body: JSON.stringify({ description })
+        });
+
+        const responseText = await res.text();
+        let result = {};
+
+        try {
+          result = responseText ? JSON.parse(responseText) : {};
+        } catch (parseErr) {
+          console.error("Bug report endpoint returned non-JSON:", responseText);
+          throw new Error("Node backend did not return JSON. Restart the Node backend and reload the extension.");
+        }
+
+        if (res.ok && result.success) {
+          bugInput.value = "";
+          showMessage("Bug saved successfully", "success");
+        } else {
+          showMessage(result.error || "Failed to save bug", "error");
+        }
+      } catch (err) {
+        console.error("Save bug error:", err);
+        showMessage("Failed to save bug: " + err.message, "error");
+      }
+
+      setButtonLoading(saveBugBtn, false);
+    };
+  }
+
   // ================= REDEEM =================
  document.getElementById("redeemBtn").onclick = async () => {
   const redeemBtn = document.getElementById("redeemBtn");
@@ -536,7 +595,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   try {
-    const res = await fetch("http://localhost:5000/api/redeem", {
+    const res = await fetch(`${NODE_API_BASE_URL}/api/redeem`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

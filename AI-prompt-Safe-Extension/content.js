@@ -1,8 +1,7 @@
 console.log("AI Safe Prompt Loaded");
 
 const PRIVACY_API_URLS = [
-  "http://127.0.0.1:8010/api/scan",
-  "http://127.0.0.1:8000/api/scan"
+  "https://ai-safe-prompt-python-backend.onrender.com/api/scan"
 ];
 const SCAN_DEBOUNCE_MS = 450;
 const MAX_LIVE_SCAN_CHARS = 12000;
