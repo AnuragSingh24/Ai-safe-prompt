@@ -21,8 +21,6 @@ When a user pastes or types into an AI prompt box:
 This keeps prompt quality usable for debugging and code review while reducing the risk of leaking secrets or personal data.
 
 
-## How to install into you browser
-https://youtu.be/KbdZrLDc7O8
 
 
 ## Features
@@ -66,6 +64,9 @@ Ai-safe-prompt-main/
 2. Enable Developer mode
 3. Choose `Load unpacked`
 4. Select `AI-prompt-Safe-Extension`
+
+## If you are facing any issue in running the extension
+Watch this video : https://youtu.be/KbdZrLDc7O8
 
 The extension expects the FastAPI backend to be available on:
 
