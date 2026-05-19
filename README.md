@@ -20,6 +20,12 @@ When a user pastes or types into an AI prompt box:
 
 This keeps prompt quality usable for debugging and code review while reducing the risk of leaking secrets or personal data.
 
+
+## How to install into you browser
+
+https://drive.google.com/file/d/1USChqCivz5RHUPsH9-UfwHH7TXmWdjgG/view?usp=sharing
+
+
 ## Features
 
 - Automatic masking on paste
