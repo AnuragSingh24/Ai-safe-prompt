@@ -22,8 +22,7 @@ This keeps prompt quality usable for debugging and code review while reducing th
 
 
 ## How to install into you browser
-
-https://drive.google.com/file/d/1USChqCivz5RHUPsH9-UfwHH7TXmWdjgG/view?usp=sharing
+https://youtu.be/KbdZrLDc7O8
 
 
 ## Features
