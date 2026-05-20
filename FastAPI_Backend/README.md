@@ -53,6 +53,7 @@ Fast detector aligned with the extension behavior for:
 - bearer tokens
 - cloud credentials
 - credit cards
+- street addresses
 - email addresses
 - phone numbers
 - IP addresses
@@ -64,7 +65,6 @@ Fast detector aligned with the extension behavior for:
 Entity-aware detection for:
 
 - person names
-- locations
 - phone numbers
 - emails
 - credit cards

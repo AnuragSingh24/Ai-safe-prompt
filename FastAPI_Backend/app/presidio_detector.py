@@ -16,7 +16,6 @@ PRESIDIO_ENTITIES = [
     "PHONE_NUMBER",
     "CREDIT_CARD",
     "CREDIT_CARD_NUMBER",
-    "LOCATION",
     "IP_ADDRESS",
     "NRP",
     "US_SSN",

@@ -12,6 +12,7 @@ from .risk import classify_risk, recommended_action
 
 
 scan_cache = ScanCache(max_items=128)
+NON_MASKED_ENTITY_TYPES = {"LOCATION", "GPE"}
 
 
 @dataclass(frozen=True)
@@ -40,7 +41,11 @@ def scan_prompt_text(text: str) -> ScanResult:
         )
 
     layer_one_detections = scan_normal_masking(text)
-    layer_two_detections = scan_with_presidio(text)
+    layer_two_detections = [
+        detection
+        for detection in scan_with_presidio(text)
+        if detection.type.upper() not in NON_MASKED_ENTITY_TYPES
+    ]
     detections = tuple(dedupe_overlaps([*layer_one_detections, *layer_two_detections]))
     risk = classify_risk(detections)
     action = recommended_action(risk, len(detections))

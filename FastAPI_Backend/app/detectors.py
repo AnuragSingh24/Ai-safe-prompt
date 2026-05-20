@@ -56,6 +56,28 @@ PATTERNS: tuple[tuple[str, re.Pattern[str], str, float], ...] = (
     ),
     ("EMAIL", re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.I), "medium", 0.85),
     ("PHONE_IN", re.compile(r"\b(?:\+?91[\s-]?)?[6-9]\d{9}\b"), "medium", 0.85),
+    (
+        "ADDRESS",
+        re.compile(
+            r"\b((?:home_|shipping_|billing_)?address|street_address)\s*[:=]\s*[\"'`]?"
+            r"([^\"'`\n;]{8,160})[\"'`]?",
+            re.I,
+        ),
+        "medium",
+        0.94,
+    ),
+    (
+        "ADDRESS",
+        re.compile(
+            r"\b\d{1,6}\s+(?:[A-Z][\w.'-]*\s+){1,6}"
+            r"(?:Street|St\.?|Road|Rd\.?|Avenue|Ave\.?|Boulevard|Blvd\.?|Lane|Ln\.?|"
+            r"Drive|Dr\.?|Court|Ct\.?|Circle|Cir\.?|Way|Place|Pl\.?|Terrace|Ter\.?)"
+            r"\b(?:,\s*[A-Z][A-Za-z .'-]{1,40}){0,3}(?:\s+\d{5}(?:-\d{4})?)?",
+            re.I,
+        ),
+        "medium",
+        0.9,
+    ),
     ("CREDIT_CARD", re.compile(r"\b(?:\d[ -]*?){13,19}\b"), "high", 0.75),
     ("IP_ADDRESS", re.compile(r"\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b"), "medium", 0.85),
     ("URL", re.compile(r"\bhttps?://[^\s<>'\")]+", re.I), "medium", 0.8),

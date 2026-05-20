@@ -28,8 +28,7 @@ VALUE_TYPES = {
     "PHONE_IN",
     "PHONE_NUMBER",
     "PERSON",
-    "LOCATION",
-    "GPE",
+    "ADDRESS",
     "IP_ADDRESS",
     "URL",
     "ID_VALUE",
@@ -62,8 +61,8 @@ class ReplacementRegistry:
 
         if entity_type == "PERSON":
             return f"Person_{number:03d}"
-        if entity_type in {"LOCATION", "GPE"}:
-            return f"Location_{number:03d}"
+        if entity_type == "ADDRESS":
+            return f"Address_{number:03d}"
         if entity_type in {"EMAIL", "EMAIL_ADDRESS"}:
             return f"user_{number:03d}@example.test"
         if entity_type in {"PHONE_IN", "PHONE_NUMBER"}:

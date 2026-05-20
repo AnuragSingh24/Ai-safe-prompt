@@ -59,6 +59,7 @@ class PrivacyPipelineTests(unittest.TestCase):
         self.assertIn("SECRET_ASSIGNMENT", entity_types)
         self.assertIn("IP_ADDRESS", entity_types)
         self.assertIn("URL", entity_types)
+        self.assertIn("ADDRESS", scan_text("address: 221B Baker Street, London")[0].type)
         self.assertIn("GITHUB_TOKEN", entity_types)
         self.assertIn("SLACK_TOKEN", entity_types)
 
@@ -81,7 +82,7 @@ class PrivacyPipelineTests(unittest.TestCase):
         self.assertIn("JSON_SECRET", entity_types)
         self.assertIn("EMAIL", entity_types)
 
-    def test_presidio_entities_are_merged_and_anonymized(self):
+    def test_presidio_locations_are_not_masked(self):
         text = "Alice Johnson lives in Mumbai and uses alice@example.com."
 
         with patch("app.pipeline.scan_with_presidio", return_value=[
@@ -91,11 +92,20 @@ class PrivacyPipelineTests(unittest.TestCase):
             result = scan_prompt_text(text)
 
         self.assertIn("Person_001", result.masked_text)
-        self.assertIn("Location_001", result.masked_text)
+        self.assertIn("Mumbai", result.masked_text)
+        self.assertNotIn("Location_001", result.masked_text)
         self.assertIn("user_001@example.test", result.masked_text)
         self.assertEqual(result.action, "mask")
         self.assertEqual(result.layers[1]["name"], "layer_2_presidio_spacy")
-        self.assertEqual(result.layers[1]["detection_count"], 2)
+        self.assertEqual(result.layers[1]["detection_count"], 1)
+
+    def test_addresses_are_anonymized(self):
+        text = "Ship to address: 221B Baker Street, London before noon."
+
+        result = scan_prompt_text(text)
+
+        self.assertIn("Address_001", result.masked_text)
+        self.assertNotIn("221B Baker Street", result.masked_text)
 
     def test_repeated_pii_uses_stable_replacements(self):
         text = "Alice Johnson emailed alice@example.com. Alice Johnson owns alice@example.com."
