@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
+import re
 
 from .anonymizer import anonymize_text
 from .cache import CachedScan, ScanCache
@@ -13,6 +14,10 @@ from .risk import classify_risk, recommended_action
 
 scan_cache = ScanCache(max_items=128)
 NON_MASKED_ENTITY_TYPES = {"LOCATION", "GPE"}
+LOCATION_CONTEXT_RE = re.compile(
+    r"(?:\b(?:from|in|at|near|to|towards)\s+|\b(?:moved|relocated|vacation|trip|travel(?:ing)?|heading)\s+to\s+)$",
+    re.I,
+)
 
 
 @dataclass(frozen=True)
@@ -44,7 +49,7 @@ def scan_prompt_text(text: str) -> ScanResult:
     layer_two_detections = [
         detection
         for detection in scan_with_presidio(text)
-        if detection.type.upper() not in NON_MASKED_ENTITY_TYPES
+        if not _should_keep_unmasked(text, detection)
     ]
     detections = tuple(dedupe_overlaps([*layer_one_detections, *layer_two_detections]))
     risk = classify_risk(detections)
@@ -83,3 +88,16 @@ def scan_prompt_text(text: str) -> ScanResult:
         action=action,
         layers=layers,
     )
+
+
+def _should_keep_unmasked(text: str, detection: RawDetection) -> bool:
+    entity_type = detection.type.upper()
+    if entity_type in NON_MASKED_ENTITY_TYPES:
+        return True
+
+    if entity_type == "PERSON" and " " not in detection.value.strip():
+        context_start = max(0, detection.start - 36)
+        context = text[context_start : detection.start]
+        return LOCATION_CONTEXT_RE.search(context) is not None
+
+    return False

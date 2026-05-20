@@ -107,6 +107,24 @@ class PrivacyPipelineTests(unittest.TestCase):
         self.assertIn("Address_001", result.masked_text)
         self.assertNotIn("221B Baker Street", result.masked_text)
 
+    def test_lives_at_address_is_anonymized_without_masking_locations(self):
+        text = (
+            "Rahul Sharma, a 28-year-old software engineer from Hyderabad, recently moved "
+            "to Bengaluru for work. He lives at 42 Green Park Avenue, Indiranagar, and "
+            "often orders food online using his phone number, 98765 43210. His email "
+            "address is rahul.sharma92@example.com. He is planning a vacation to Goa."
+        )
+
+        result = scan_prompt_text(text)
+
+        self.assertIn("Address_001", result.masked_text)
+        self.assertNotIn("42 Green Park Avenue", result.masked_text)
+        self.assertIn("Hyderabad", result.masked_text)
+        self.assertIn("Bengaluru", result.masked_text)
+        self.assertIn("Goa", result.masked_text)
+        self.assertIn("+91 9000000001", result.masked_text)
+        self.assertIn("user_001@example.test", result.masked_text)
+
     def test_repeated_pii_uses_stable_replacements(self):
         text = "Alice Johnson emailed alice@example.com. Alice Johnson owns alice@example.com."
 

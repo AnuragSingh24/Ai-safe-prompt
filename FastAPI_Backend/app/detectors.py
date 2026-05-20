@@ -69,10 +69,23 @@ PATTERNS: tuple[tuple[str, re.Pattern[str], str, float], ...] = (
     (
         "ADDRESS",
         re.compile(
-            r"\b\d{1,6}\s+(?:[A-Z][\w.'-]*\s+){1,6}"
+            r"\b((?:lives|resides|stays|located)\s+at)\s+"
+            r"((?:\d{1,6}[A-Za-z]?\s+)?(?:(?-i:[A-Z])[\w.'-]*\s+){1,6}"
             r"(?:Street|St\.?|Road|Rd\.?|Avenue|Ave\.?|Boulevard|Blvd\.?|Lane|Ln\.?|"
             r"Drive|Dr\.?|Court|Ct\.?|Circle|Cir\.?|Way|Place|Pl\.?|Terrace|Ter\.?)"
-            r"\b(?:,\s*[A-Z][A-Za-z .'-]{1,40}){0,3}(?:\s+\d{5}(?:-\d{4})?)?",
+            r"\b(?:,\s*(?-i:[A-Z])[A-Za-z .'-]{1,40}){0,2}(?:\s+\d{5}(?:-\d{4})?)?)",
+            re.I,
+        ),
+        "medium",
+        0.95,
+    ),
+    (
+        "ADDRESS",
+        re.compile(
+            r"\b\d{1,6}[A-Za-z]?\s+(?:(?-i:[A-Z])[\w.'-]*\s+){1,6}"
+            r"(?:Street|St\.?|Road|Rd\.?|Avenue|Ave\.?|Boulevard|Blvd\.?|Lane|Ln\.?|"
+            r"Drive|Dr\.?|Court|Ct\.?|Circle|Cir\.?|Way|Place|Pl\.?|Terrace|Ter\.?)"
+            r"\b(?:,\s*(?-i:[A-Z])[A-Za-z .'-]{1,40}){0,2}(?:\s+\d{5}(?:-\d{4})?)?",
             re.I,
         ),
         "medium",
