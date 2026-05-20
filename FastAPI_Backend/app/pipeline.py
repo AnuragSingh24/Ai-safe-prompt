@@ -18,6 +18,13 @@ LOCATION_CONTEXT_RE = re.compile(
     r"(?:\b(?:from|in|at|near|to|towards)\s+|\b(?:moved|relocated|vacation|trip|travel(?:ing)?|heading)\s+to\s+)$",
     re.I,
 )
+CODE_CONTEXT_RE = re.compile(
+    r"(?:\b(?:CREATE|ALTER|DROP|FUNCTION|PROCEDURE|RETURNS|RETURN|BEGIN|END|CASE|WHEN|THEN|ELSE|"
+    r"SELECT|FROM|WHERE|JOIN|EXEC|DB_NAME|SERVERNAME)\b|@@|[.[\]()'=])",
+    re.I,
+)
+SQL_IDENTIFIER_RE = re.compile(r"^(?:dbo\.|ufn_|usp_|sp_|fn_|tbl_|vw_)?[A-Za-z_][A-Za-z0-9_$#@]*$")
+SERVER_IDENTIFIER_RE = re.compile(r"^(?=.*\d)[A-Z0-9_$#@-]{4,}$")
 
 
 @dataclass(frozen=True)
@@ -95,9 +102,36 @@ def _should_keep_unmasked(text: str, detection: RawDetection) -> bool:
     if entity_type in NON_MASKED_ENTITY_TYPES:
         return True
 
+    if entity_type == "PERSON" and _looks_like_code_person_false_positive(text, detection):
+        return True
+
     if entity_type == "PERSON" and " " not in detection.value.strip():
         context_start = max(0, detection.start - 36)
         context = text[context_start : detection.start]
         return LOCATION_CONTEXT_RE.search(context) is not None
+
+    return False
+
+
+def _looks_like_code_person_false_positive(text: str, detection: RawDetection) -> bool:
+    value = detection.value.strip()
+    if not value:
+        return False
+
+    context_start = max(0, detection.start - 80)
+    context_end = min(len(text), detection.end + 80)
+    context = text[context_start:context_end]
+
+    if CODE_CONTEXT_RE.search(context) and (
+        SQL_IDENTIFIER_RE.fullmatch(value)
+        or SERVER_IDENTIFIER_RE.fullmatch(value)
+        or "." in value
+        or "[" in value
+        or "]" in value
+    ):
+        return True
+
+    if value.startswith("@") or "_" in value or "$" in value or "#" in value:
+        return True
 
     return False

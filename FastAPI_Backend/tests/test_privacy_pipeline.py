@@ -73,6 +73,25 @@ class PrivacyPipelineTests(unittest.TestCase):
         self.assertEqual(result.layers[0]["name"], "layer_1_normal_masking")
         self.assertGreaterEqual(result.layers[0]["detection_count"], 1)
 
+    def test_sql_identifier_person_false_positives_are_not_masked(self):
+        text = (
+            "CREATE FUNCTION [dbo].[ufn_GetEnvironmentType]() RETURNS VARCHAR(20) "
+            "AS BEGIN IF (@@SERVERNAME IN ('SEUSCPHPRSQL1', 'SDRPPHPRSQL3') "
+            "AND DB_NAME() LIKE 'P2PHPR') BEGIN RETURN 'PRODUCTION' END "
+            "RETURN CASE DB_NAME() WHEN 'P2PHDV' THEN 'DEVELOPMENT' END END"
+        )
+
+        with patch("app.pipeline.scan_with_presidio", return_value=[
+            RawDetection("PERSON", "dbo", 17, 20, "medium", 0.86),
+            RawDetection("PERSON", "ufn_GetEnvironmentType", 23, 45, "medium", 0.86),
+            RawDetection("PERSON", "SEUSCPHPRSQL1", 82, 95, "medium", 0.86),
+        ]):
+            result = scan_prompt_text(text)
+
+        self.assertNotIn("Person_001", result.masked_text)
+        self.assertIn("ufn_GetEnvironmentType", result.masked_text)
+        self.assertIn("SEUSCPHPRSQL1", result.masked_text)
+
     def test_layer_one_normal_masking_uses_extension_style_rules(self):
         text = 'const config = {"api_key": "abc1234567890xyza"}; email me@test.com'
 
