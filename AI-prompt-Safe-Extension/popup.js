@@ -14,6 +14,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const coinsEl = document.getElementById("coins");
   const rupeesEl = document.getElementById("rupees");
   const messageBox = document.getElementById("messageBox");
+  const loginMessageBox = document.getElementById("loginMessageBox");
 
   // ================= CHECK TOKEN VALIDITY =================
   async function isTokenValid(jwtToken) {
@@ -67,9 +68,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // ================= SHOW MESSAGE =================
   function showMessage(text, type = "success") {
-    messageBox.innerHTML = `<div class="message ${type}">${text}</div>`;
+    const activeBox =
+      dashboardPage.style.display !== "none" && messageBox ? messageBox : loginMessageBox || messageBox;
+
+    if (!activeBox) return;
+
+    activeBox.innerHTML = `<div class="message ${type}">${text}</div>`;
     setTimeout(() => {
-      messageBox.innerHTML = "";
+      activeBox.innerHTML = "";
     }, 4000);
   }
 
@@ -127,23 +133,30 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function updateMaskingControl(isEnabled) {
-    const maskingToggle = document.getElementById("maskingToggle");
-    const maskingStatus = document.getElementById("maskingStatus");
-    const maskingSwitch = document.getElementById("maskingSwitch");
-    const statusPanel = document.querySelector(".status-panel");
+    document.querySelectorAll("#maskingToggle, #loginMaskingToggle").forEach((toggle) => {
+      toggle.checked = isEnabled;
+    });
 
-    if (maskingToggle) maskingToggle.checked = isEnabled;
-    if (maskingStatus) {
-      maskingStatus.innerText = isEnabled ? "ON" : "OFF";
-      maskingStatus.style.background = isEnabled ? "#14785d" : "#8a938f";
-    }
-    if (maskingSwitch) {
-      maskingSwitch.classList.toggle("is-off", !isEnabled);
-      maskingSwitch.setAttribute("aria-checked", String(isEnabled));
-    }
-    if (statusPanel) {
-      statusPanel.classList.toggle("is-off", !isEnabled);
-    }
+    document.querySelectorAll("#maskingStatus, #loginMaskingStatus").forEach((status) => {
+      status.innerText = isEnabled ? "ON" : "OFF";
+      status.style.background = isEnabled ? "#14785d" : "#8a938f";
+    });
+
+    document.querySelectorAll("#maskingSwitch, #loginMaskingSwitch").forEach((switchEl) => {
+      switchEl.classList.toggle("is-off", !isEnabled);
+      switchEl.setAttribute("aria-checked", String(isEnabled));
+    });
+
+    document.querySelectorAll(".status-panel").forEach((panel) => {
+      panel.classList.toggle("is-off", !isEnabled);
+    });
+  }
+
+  async function setMaskingEnabled(nextEnabled) {
+    await chrome.storage.local.set({ enabled: nextEnabled });
+    updateMaskingControl(nextEnabled);
+    showMessage(nextEnabled ? "Masking enabled" : "Masking paused", nextEnabled ? "success" : "error");
+    console.log("Masking toggled:", nextEnabled);
   }
 
   // ================= FETCH COINS FROM BACKEND =================
@@ -225,6 +238,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         timestamp: new Date().toLocaleTimeString()
       });
 
+      updateMaskingControl(data.enabled !== false);
+
       // 🔐 If user has credentials stored
       if (data.user && data.jwtToken) {
         console.log("✅ Found stored credentials for:", data.user.name);
@@ -293,16 +308,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           updateWallet(points, 0);
           console.log("⚠️ Backend unavailable, using local storage fallback");
         }
-
-        // Update masking toggle
-        const maskingToggle = document.getElementById("maskingToggle");
-        const maskingStatus = document.getElementById("maskingStatus");
-        const isEnabled = data.enabled !== false;
-        maskingToggle.checked = isEnabled;
-        maskingStatus.innerText = isEnabled ? "ON" : "OFF";
-        maskingStatus.style.background = isEnabled ? "#14785d" : "#8a938f";
-        updateMaskingControl(isEnabled);
-
       } else {
         console.log("❌ User not logged in");
         console.log("Debug info - data.user:", !!data.user, "data.jwtToken:", !!data.jwtToken);
@@ -647,23 +652,34 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ================= MASKING TOGGLE =================
   const maskingToggle = document.getElementById("maskingToggle");
   const maskingSwitch = document.getElementById("maskingSwitch");
+  const loginMaskingToggle = document.getElementById("loginMaskingToggle");
+  const loginMaskingSwitch = document.getElementById("loginMaskingSwitch");
 
   if (maskingSwitch) {
     maskingSwitch.onclick = async () => {
       const current = await chrome.storage.local.get(["enabled"]);
       const nextEnabled = current.enabled === false;
-      await chrome.storage.local.set({ enabled: nextEnabled });
-      updateMaskingControl(nextEnabled);
-      showMessage(nextEnabled ? "Masking enabled" : "Masking paused", nextEnabled ? "success" : "error");
-      console.log("Masking toggled:", nextEnabled);
+      await setMaskingEnabled(nextEnabled);
     };
   }
 
   if (maskingToggle) {
     maskingToggle.onchange = async () => {
-      const nextEnabled = maskingToggle.checked;
-      await chrome.storage.local.set({ enabled: nextEnabled });
-      updateMaskingControl(nextEnabled);
+      await setMaskingEnabled(maskingToggle.checked);
+    };
+  }
+
+  if (loginMaskingSwitch) {
+    loginMaskingSwitch.onclick = async () => {
+      const current = await chrome.storage.local.get(["enabled"]);
+      const nextEnabled = current.enabled === false;
+      await setMaskingEnabled(nextEnabled);
+    };
+  }
+
+  if (loginMaskingToggle) {
+    loginMaskingToggle.onchange = async () => {
+      await setMaskingEnabled(loginMaskingToggle.checked);
     };
   }
 });

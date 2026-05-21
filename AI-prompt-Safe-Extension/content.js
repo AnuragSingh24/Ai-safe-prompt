@@ -4,7 +4,10 @@ const PRIVACY_API_URLS = [
   "https://ai-safe-prompt-python-backend.onrender.com/api/scan"
 ];
 const SCAN_DEBOUNCE_MS = 450;
+const PRIVACY_API_TIMEOUT_MS = 8000;
 const MAX_LIVE_SCAN_CHARS = 12000;
+const REMOTE_INPUT_SCAN_RE =
+  /(@|https?:\/\/|-----BEGIN |\bsk-[A-Za-z0-9_-]{16,}|\b(?:password|passwd|pwd|api[_-]?key|apikey|token|secret|credential|auth|bearer|address|street|road|avenue|lives\s+at|resides\s+at)\b|\b\+?\d[\d\s-]{8,}\d\b)/i;
 
 let extensionEnabled = true;
 let isUpdating = false;
@@ -70,7 +73,13 @@ async function scanWithPrivacyApi(text, mode = "paste") {
 
   for (const apiUrl of PRIVACY_API_URLS) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const timeoutId = setTimeout(() => {
+      try {
+        controller.abort(new DOMException(`Privacy API timed out after ${PRIVACY_API_TIMEOUT_MS}ms`, "TimeoutError"));
+      } catch {
+        controller.abort();
+      }
+    }, PRIVACY_API_TIMEOUT_MS);
 
     try {
       const response = await fetch(apiUrl, {
@@ -102,6 +111,10 @@ async function scanWithPrivacyApi(text, mode = "paste") {
 async function maskSensitiveData(text, mode = "paste") {
   const preApiMasked = maskBeforeModelLocally(text);
 
+  if (!shouldUseRemotePrivacyApi(text, mode)) {
+    return preApiMasked;
+  }
+
   try {
     const result = await scanWithPrivacyApi(preApiMasked, mode);
     if (result?.success && typeof result.masked_text === "string") {
@@ -113,10 +126,25 @@ async function maskSensitiveData(text, mode = "paste") {
       return result.masked_text;
     }
   } catch (err) {
-    console.warn("AI Safe Prompt API unavailable, using local fallback:", err.message);
+    if (isExpectedPrivacyApiFallback(err)) {
+      console.debug("AI Safe Prompt API fallback:", err.message);
+    } else {
+      console.warn("AI Safe Prompt API unavailable, using local fallback:", err.message);
+    }
   }
 
   return maskSensitiveDataLocally(text);
+}
+
+function shouldUseRemotePrivacyApi(text, mode) {
+  if (mode === "paste") return true;
+  return text.length >= 12 && REMOTE_INPUT_SCAN_RE.test(text);
+}
+
+function isExpectedPrivacyApiFallback(err) {
+  return err?.name === "AbortError" ||
+    err?.name === "TimeoutError" ||
+    /aborted|timed out|signal is aborted/i.test(err?.message || "");
 }
 
 function maskBeforeModelLocally(text) {

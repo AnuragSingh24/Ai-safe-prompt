@@ -70,6 +70,10 @@
       line-height: 1.45;
     }
 
+    .login-copy {
+      margin-bottom: 18px;
+    }
+
     #loginPage img {
       width: 80px;
       margin-bottom: 20px;
@@ -381,6 +385,11 @@
       box-shadow: 0 8px 22px rgba(24, 49, 41, 0.08);
     }
 
+    .status-panel.login-status {
+      width: 100%;
+      margin: 0 0 18px;
+    }
+
     .status-panel.is-off .status-dot {
       background: #8a938f;
       animation: none;
@@ -526,7 +535,19 @@
       <img src="./logo-icon.png" alt="AI Safe Prompt logo" />
     </div>
     <h1>AI Safe Prompt</h1>
-    <p>Login with Google to access your dashboard and start earning coins</p>
+    <p class="login-copy">Login with Google to access your dashboard and start earning coins</p>
+    <div id="loginMessageBox"></div>
+    <div class="status-panel login-status is-off">
+      <div class="status-label">
+        <span class="status-dot"></span>
+        <span>Masking</span>
+      </div>
+      <input type="checkbox" id="loginMaskingToggle" style="display: none;" />
+      <span id="loginMaskingStatus" class="status-pill">OFF</span>
+      <button id="loginMaskingSwitch" class="masking-switch is-off" type="button" role="switch" aria-checked="false" aria-label="Toggle masking">
+        <span class="switch-thumb"></span>
+      </button>
+    </div>
     <button id="loginBtn" class="btn-login">Login with Google</button>
   </div>
 
