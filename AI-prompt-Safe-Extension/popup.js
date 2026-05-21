@@ -1,5 +1,7 @@
 document.addEventListener("DOMContentLoaded", async () => {
   const NODE_API_BASE_URL = "https://ai-safe-prompt.onrender.com";
+  const PENDING_PRIVACY_STATS_KEY = "aiSafePromptPendingPrivacyStats";
+  const PRIVACY_SYNC_KEY = "privacyStatsSynced";
 
   const loginPage = document.getElementById("loginPage");
   const dashboardPage = document.getElementById("dashboardPage");
@@ -15,6 +17,28 @@ document.addEventListener("DOMContentLoaded", async () => {
   const rupeesEl = document.getElementById("rupees");
   const messageBox = document.getElementById("messageBox");
   const loginMessageBox = document.getElementById("loginMessageBox");
+  const todayProtectedItemsEl = document.getElementById("todayProtectedItems");
+  const totalProtectedItemsEl = document.getElementById("totalProtectedItems");
+  const protectedPromptsEl = document.getElementById("protectedPrompts");
+  const privacyTodayLabelEl = document.getElementById("privacyTodayLabel");
+  const securityQuoteEl = document.getElementById("securityQuote");
+  const privacyLastProtectedEl = document.getElementById("privacyLastProtected");
+
+  const dataSecurityQuotes = [
+    "Security is a daily habit, not a one-time setting.",
+    "The safest prompt is the one that shares only what it must.",
+    "Protecting small details prevents big privacy leaks.",
+    "Good privacy tools work quietly before risk becomes visible.",
+    "Mask first, share second, stay in control."
+  ];
+
+  function getTodayKey() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
 
   // ================= CHECK TOKEN VALIDITY =================
   async function isTokenValid(jwtToken) {
@@ -132,6 +156,177 @@ document.addEventListener("DOMContentLoaded", async () => {
     animateNumber(rupeesEl, totalCoins * 0.1, { decimals: 2 });
   }
 
+  function updatePrivacyDashboard(stats = {}) {
+    stats = stats || {};
+
+    const today = getTodayKey();
+    const isToday = stats.date === today;
+    const todayItems = isToday ? Number(stats.todayItems) || 0 : 0;
+    const todayPrompts = isToday ? Number(stats.todayPrompts) || 0 : 0;
+    const totalItems = Number(stats.totalItems) || 0;
+    const totalPrompts = Number(stats.totalPrompts) || 0;
+    const quoteIndex = new Date().getDate() % dataSecurityQuotes.length;
+
+    animateNumber(todayProtectedItemsEl, todayItems);
+    animateNumber(totalProtectedItemsEl, totalItems);
+    animateNumber(protectedPromptsEl, totalPrompts);
+
+    if (privacyTodayLabelEl) {
+      privacyTodayLabelEl.innerText = new Date().toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric"
+      });
+    }
+
+    if (securityQuoteEl) {
+      securityQuoteEl.innerText = dataSecurityQuotes[quoteIndex];
+    }
+
+    if (privacyLastProtectedEl) {
+      if (todayPrompts > 0 && stats.lastProtectedAt) {
+        privacyLastProtectedEl.innerText = `Last protected at ${new Date(stats.lastProtectedAt).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        })}.`;
+      } else {
+        privacyLastProtectedEl.innerText = "No sensitive data protected yet today.";
+      }
+    }
+  }
+
+  function mergePrivacyStats(baseStats = {}, pendingStats = {}) {
+    const today = getTodayKey();
+    const baseIsToday = baseStats.date === today;
+    const pendingIsToday = pendingStats.date === today;
+    const baseLast = baseStats.lastProtectedAt ? new Date(baseStats.lastProtectedAt).getTime() : 0;
+    const pendingLast = pendingStats.lastProtectedAt ? new Date(pendingStats.lastProtectedAt).getTime() : 0;
+
+    return {
+      date: today,
+      todayItems: (baseIsToday ? Number(baseStats.todayItems) || 0 : 0) +
+        (pendingIsToday ? Number(pendingStats.todayItems) || 0 : 0),
+      todayPrompts: (baseIsToday ? Number(baseStats.todayPrompts) || 0 : 0) +
+        (pendingIsToday ? Number(pendingStats.todayPrompts) || 0 : 0),
+      totalItems: (Number(baseStats.totalItems) || 0) + (Number(pendingStats.totalItems) || 0),
+      totalPrompts: (Number(baseStats.totalPrompts) || 0) + (Number(pendingStats.totalPrompts) || 0),
+      lastProtectedAt: pendingLast > baseLast ? pendingStats.lastProtectedAt : baseStats.lastProtectedAt
+    };
+  }
+
+  async function importActiveTabPendingPrivacyStats() {
+    try {
+      if (!chrome.tabs || !chrome.scripting) return null;
+
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.id || !/^https?:\/\//.test(tab.url || "")) return null;
+
+      const [result] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: (storageKey) => {
+          const rawStats = window.localStorage.getItem(storageKey);
+          if (!rawStats) return null;
+          window.localStorage.removeItem(storageKey);
+          try {
+            return JSON.parse(rawStats);
+          } catch {
+            return null;
+          }
+        },
+        args: [PENDING_PRIVACY_STATS_KEY]
+      });
+
+      const pendingStats = result?.result;
+      if (!pendingStats) return null;
+
+      const stored = await chrome.storage.local.get(["privacyStats"]);
+      const mergedStats = mergePrivacyStats(stored.privacyStats || {}, pendingStats);
+      await chrome.storage.local.set({ privacyStats: mergedStats });
+      return mergedStats;
+    } catch (err) {
+      console.debug("No active-tab pending privacy stats to import:", err.message);
+      return null;
+    }
+  }
+
+  async function fetchPrivacyStatsFromBackend(jwtToken) {
+    if (!jwtToken) return null;
+
+    try {
+      const res = await fetch(`${NODE_API_BASE_URL}/api/privacy-stats`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${jwtToken}`
+        }
+      });
+
+      if (!res.ok) return null;
+
+      const result = await res.json();
+      return result.privacyStats || null;
+    } catch (err) {
+      console.warn("Failed to fetch privacy stats:", err.message);
+      return null;
+    }
+  }
+
+  async function syncPrivacyStatsWithBackend(jwtToken, localStats = {}) {
+    if (!jwtToken) return localStats || {};
+
+    const stored = await chrome.storage.local.get([PRIVACY_SYNC_KEY]);
+    const syncedStats = stored[PRIVACY_SYNC_KEY] || {};
+    const deltaItems = Math.max(0, (Number(localStats.totalItems) || 0) - (Number(syncedStats.totalItems) || 0));
+    const deltaPrompts = Math.max(0, (Number(localStats.totalPrompts) || 0) - (Number(syncedStats.totalPrompts) || 0));
+
+    if (!deltaItems && !deltaPrompts) {
+      const backendStats = await fetchPrivacyStatsFromBackend(jwtToken);
+      if (backendStats) {
+        await chrome.storage.local.set({
+          privacyStats: backendStats,
+          [PRIVACY_SYNC_KEY]: {
+            totalItems: backendStats.totalItems || 0,
+            totalPrompts: backendStats.totalPrompts || 0
+          }
+        });
+        return backendStats;
+      }
+
+      return localStats || {};
+    }
+
+    try {
+      const res = await fetch(`${NODE_API_BASE_URL}/api/privacy-stats/sync`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${jwtToken}`
+        },
+        body: JSON.stringify({
+          items: deltaItems,
+          prompts: deltaPrompts,
+          lastProtectedAt: localStats.lastProtectedAt || new Date().toISOString()
+        })
+      });
+
+      if (!res.ok) throw new Error(`Privacy stats sync failed with ${res.status}`);
+
+      const result = await res.json();
+      const backendStats = result.privacyStats || localStats || {};
+
+      await chrome.storage.local.set({
+        privacyStats: backendStats,
+        [PRIVACY_SYNC_KEY]: {
+          totalItems: backendStats.totalItems || 0,
+          totalPrompts: backendStats.totalPrompts || 0
+        }
+      });
+
+      return backendStats;
+    } catch (err) {
+      console.warn("Failed to sync privacy stats:", err.message);
+      return localStats || {};
+    }
+  }
+
   function updateMaskingControl(isEnabled) {
     document.querySelectorAll("#maskingToggle, #loginMaskingToggle").forEach((toggle) => {
       toggle.checked = isEnabled;
@@ -229,7 +424,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ================= LOAD UI =================
   async function loadUI() {
     try {
-      const data = await chrome.storage.local.get(["user", "jwtToken", "points", "enabled"]);
+      const importedPrivacyStats = await importActiveTabPendingPrivacyStats();
+      const data = await chrome.storage.local.get(["user", "jwtToken", "points", "enabled", "privacyStats"]);
       console.log("📂 Loading UI from storage:", {
         hasUser: !!data.user,
         hasToken: !!data.jwtToken,
@@ -239,6 +435,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
 
       updateMaskingControl(data.enabled !== false);
+      let visiblePrivacyStats = importedPrivacyStats || data.privacyStats;
 
       // 🔐 If user has credentials stored
       if (data.user && data.jwtToken) {
@@ -256,6 +453,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         console.log("✅ User is logged in:", data.user.name);
+        visiblePrivacyStats = await syncPrivacyStatsWithBackend(data.jwtToken, visiblePrivacyStats || {});
+        updatePrivacyDashboard(visiblePrivacyStats);
 
         // Show Dashboard, Hide Login
         showPage("dashboard");
@@ -311,6 +510,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else {
         console.log("❌ User not logged in");
         console.log("Debug info - data.user:", !!data.user, "data.jwtToken:", !!data.jwtToken);
+        updatePrivacyDashboard(visiblePrivacyStats);
 
         // Show Login, Hide Dashboard
         showPage("login");
@@ -642,6 +842,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.log("📦 Storage changed:", changes);
       if (changes.jwtToken) {
         console.log("🔑 jwtToken changed:", !!changes.jwtToken.newValue);
+      }
+      if (changes.privacyStats) {
+        updatePrivacyDashboard(changes.privacyStats.newValue);
       }
       if (changes.user) {
         console.log("👤 user changed:", !!changes.user.newValue);

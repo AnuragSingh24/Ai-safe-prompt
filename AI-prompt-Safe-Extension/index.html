@@ -206,6 +206,97 @@
       font-size: 16px;
     }
 
+    .privacy-dashboard {
+      background: var(--panel);
+      padding: 12px;
+      border-radius: 8px;
+      margin: 12px 0 15px;
+      border: 1px solid var(--line);
+      box-shadow: 0 8px 22px rgba(24, 49, 41, 0.08);
+    }
+
+    .privacy-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .privacy-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+
+    .privacy-subtitle {
+      margin-top: 2px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .privacy-date {
+      flex: 0 0 auto;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(47, 191, 143, 0.13);
+      color: var(--mint-dark);
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .privacy-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .privacy-stat {
+      min-height: 70px;
+      padding: 10px 8px;
+      border-radius: 8px;
+      background: linear-gradient(160deg, rgba(237, 247, 242, 0.95), rgba(255, 255, 255, 0.9));
+      border: 1px solid rgba(21, 32, 29, 0.08);
+    }
+
+    .privacy-number {
+      display: block;
+      font-size: 21px;
+      line-height: 1;
+      font-weight: 900;
+      color: var(--ink);
+    }
+
+    .privacy-label {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.2;
+      font-weight: 700;
+    }
+
+    .security-quote {
+      margin-top: 10px;
+      padding: 10px;
+      border-left: 3px solid var(--mint);
+      border-radius: 6px;
+      background: rgba(47, 191, 143, 0.08);
+      color: #31423c;
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 650;
+    }
+
+    .privacy-last {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.3;
+    }
+
     /* ================= BUTTONS ================= */
     button {
       width: 100%;
@@ -272,6 +363,18 @@
       color: white;
     }
 
+    .btn-compact {
+      width: auto;
+      min-width: 76px;
+      height: 40px;
+      padding: 0 12px;
+      margin: 0;
+      border-radius: 8px;
+      flex: 0 0 auto;
+      font-size: 12px;
+      box-shadow: 0 8px 16px rgba(21, 32, 29, 0.1);
+    }
+
     .btn-logout {
       background: var(--red);
       color: white;
@@ -307,20 +410,59 @@
       background: white;
     }
 
+    .quick-actions {
+      display: grid;
+      gap: 9px;
+      margin: 12px 0 10px;
+    }
+
+    .compact-card {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: 0 8px 20px rgba(24, 49, 41, 0.07);
+    }
+
+    .compact-label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .compact-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .compact-row input,
+    .compact-row textarea {
+      margin: 0;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .compact-row textarea {
+      min-height: 40px;
+      max-height: 70px;
+      resize: vertical;
+    }
+
     .btn-save-upi {
       background: var(--amber);
       color: white;
-      margin-top: 8px;
     }
 
     .bug-report {
-      margin-top: 14px;
+      margin: 0;
     }
 
     .btn-save-bug {
       background: #6b5bd7;
       color: white;
-      margin-top: 4px;
     }
 
     .message {
@@ -604,17 +746,51 @@
       </button>
     </div>
 
-    <label><b>UPI ID:</b></label>
-    <input type="text" id="upi" placeholder="example@upi" />
-    <button class="btn-save-upi" id="saveUpi">Save UPI</button>
+    <div class="privacy-dashboard stagger-in">
+      <div class="privacy-header">
+        <div>
+          <div class="privacy-title">Data Protection Dashboard</div>
+          <div class="privacy-subtitle">Sensitive items protected by this extension.</div>
+        </div>
+        <span id="privacyTodayLabel" class="privacy-date">Today</span>
+      </div>
+      <div class="privacy-stats">
+        <div class="privacy-stat">
+          <span id="todayProtectedItems" class="privacy-number">0</span>
+          <span class="privacy-label">Saved today</span>
+        </div>
+        <div class="privacy-stat">
+          <span id="totalProtectedItems" class="privacy-number">0</span>
+          <span class="privacy-label">Saved total</span>
+        </div>
+        <div class="privacy-stat">
+          <span id="protectedPrompts" class="privacy-number">0</span>
+          <span class="privacy-label">Prompts secured</span>
+        </div>
+      </div>
+      <div id="securityQuote" class="security-quote">Security is a daily habit, not a one-time setting.</div>
+      <div id="privacyLastProtected" class="privacy-last">No sensitive data protected yet today.</div>
+    </div>
+
+    <div class="quick-actions stagger-in">
+      <div class="compact-card">
+        <label class="compact-label" for="upi">UPI ID</label>
+        <div class="compact-row">
+          <input type="text" id="upi" placeholder="example@upi" />
+          <button class="btn-save-upi btn-compact" id="saveUpi">Save</button>
+        </div>
+      </div>
+
+      <div class="bug-report compact-card">
+        <label class="compact-label" for="bugDescription">Report a Bug</label>
+        <div class="compact-row">
+          <textarea id="bugDescription" maxlength="2000" placeholder="Write the problem you faced"></textarea>
+          <button class="btn-save-bug btn-compact" id="saveBug">Send</button>
+        </div>
+      </div>
+    </div>
 
     <button class="btn-redeem" id="redeemBtn">Redeem (50 coins)</button>
-
-    <div class="bug-report">
-      <label><b>Report a Bug:</b></label>
-      <textarea id="bugDescription" maxlength="2000" placeholder="Write the problem you faced"></textarea>
-      <button class="btn-save-bug" id="saveBug">Send Report</button>
-    </div>
 
     <button class="btn-logout" id="logoutBtn">Logout</button>
   </div>

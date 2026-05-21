@@ -6,6 +6,7 @@ const PRIVACY_API_URLS = [
 const SCAN_DEBOUNCE_MS = 450;
 const PRIVACY_API_TIMEOUT_MS = 8000;
 const MAX_LIVE_SCAN_CHARS = 12000;
+const PENDING_PRIVACY_STATS_KEY = "aiSafePromptPendingPrivacyStats";
 const REMOTE_INPUT_SCAN_RE =
   /(@|https?:\/\/|-----BEGIN |\bsk-[A-Za-z0-9_-]{16,}|\b(?:password|passwd|pwd|api[_-]?key|apikey|token|secret|credential|auth|bearer|address|street|road|avenue|lives\s+at|resides\s+at)\b|\b\+?\d[\d\s-]{8,}\d\b)/i;
 
@@ -14,6 +15,30 @@ let isUpdating = false;
 let scanTimer = null;
 let lastScannedValue = "";
 let secureAnimationTimer = null;
+let hasShownReconnectNotice = false;
+let isStorageConnected = true;
+
+function getTodayKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function buildNextPrivacyStats(existing = {}, protectedItems, now = new Date()) {
+  const today = getTodayKey();
+  const isNewDay = existing.date !== today;
+
+  return {
+    date: today,
+    todayItems: (isNewDay ? 0 : Number(existing.todayItems) || 0) + protectedItems,
+    todayPrompts: (isNewDay ? 0 : Number(existing.todayPrompts) || 0) + 1,
+    totalItems: (Number(existing.totalItems) || 0) + protectedItems,
+    totalPrompts: (Number(existing.totalPrompts) || 0) + 1,
+    lastProtectedAt: now.toISOString()
+  };
+}
 
 function isChromeAvailable() {
   try {
@@ -23,18 +48,118 @@ function isChromeAvailable() {
   }
 }
 
+function isExtensionContextError(err) {
+  return /extension context invalidated|context invalidated|extension context/i.test(err?.message || "");
+}
+
+function getRuntimeLastErrorMessage() {
+  try {
+    return chrome.runtime?.lastError?.message || "";
+  } catch (err) {
+    return isExtensionContextError(err) ? "Extension context invalidated." : err.message;
+  }
+}
+
+function getStorage(keys) {
+  return new Promise((resolve) => {
+    if (!isChromeAvailable()) {
+      resolve({});
+      return;
+    }
+
+    try {
+      const maybePromise = chrome.storage.local.get(keys, (result) => {
+        const lastErrorMessage = getRuntimeLastErrorMessage();
+        if (lastErrorMessage) {
+          if (!isExtensionContextError({ message: lastErrorMessage })) {
+            console.warn("AI Safe Prompt storage read failed:", lastErrorMessage);
+          } else {
+            isStorageConnected = false;
+          }
+          resolve({});
+          return;
+        }
+        resolve(result || {});
+      });
+
+      if (maybePromise?.then) {
+        maybePromise.then(resolve).catch((err) => {
+          if (!isExtensionContextError(err)) {
+            console.warn("AI Safe Prompt storage read failed:", err.message);
+          } else {
+            isStorageConnected = false;
+          }
+          resolve({});
+        });
+      }
+    } catch (err) {
+      if (!isExtensionContextError(err)) {
+        console.warn("AI Safe Prompt storage read failed:", err.message);
+      } else {
+        isStorageConnected = false;
+      }
+      resolve({});
+    }
+  });
+}
+
+function setStorage(values) {
+  return new Promise((resolve) => {
+    if (!isChromeAvailable()) {
+      resolve();
+      return;
+    }
+
+    try {
+      const maybePromise = chrome.storage.local.set(values, () => {
+        const lastErrorMessage = getRuntimeLastErrorMessage();
+        if (lastErrorMessage && !isExtensionContextError({ message: lastErrorMessage })) {
+          console.warn("AI Safe Prompt storage write failed:", lastErrorMessage);
+        } else if (lastErrorMessage) {
+          isStorageConnected = false;
+        }
+        resolve();
+      });
+
+      if (maybePromise?.then) {
+        maybePromise.then(resolve).catch((err) => {
+          if (!isExtensionContextError(err)) {
+            console.warn("AI Safe Prompt storage write failed:", err.message);
+          } else {
+            isStorageConnected = false;
+          }
+          resolve();
+        });
+      }
+    } catch (err) {
+      if (!isExtensionContextError(err)) {
+        console.warn("AI Safe Prompt storage write failed:", err.message);
+      } else {
+        isStorageConnected = false;
+      }
+      resolve();
+    }
+  });
+}
+
 function initState() {
   if (!isChromeAvailable()) return;
 
-  chrome.storage.local.get(["enabled"], (result) => {
+  getStorage(["enabled"]).then((result) => {
     extensionEnabled = result.enabled !== false;
   });
 
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === "local" && changes.enabled) {
-      extensionEnabled = changes.enabled.newValue !== false;
+  try {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === "local" && changes.enabled) {
+        extensionEnabled = changes.enabled.newValue !== false;
+      }
+    });
+  } catch (err) {
+    if (!isExtensionContextError(err)) {
+      console.warn("AI Safe Prompt storage listener failed:", err.message);
     }
-  });
+  }
 }
 
 function isEditableTarget(target) {
@@ -63,7 +188,7 @@ async function scanWithPrivacyApi(text, mode = "paste") {
   const headers = { "Content-Type": "application/json" };
 
   if (isChromeAvailable()) {
-    const stored = await chrome.storage.local.get(["jwtToken"]);
+    const stored = await getStorage(["jwtToken"]);
     if (stored.jwtToken) {
       headers.Authorization = `Bearer ${stored.jwtToken}`;
     }
@@ -128,6 +253,9 @@ async function maskSensitiveData(text, mode = "paste") {
   } catch (err) {
     if (isExpectedPrivacyApiFallback(err)) {
       console.debug("AI Safe Prompt API fallback:", err.message);
+    } else if (isExtensionContextError(err)) {
+      console.debug("AI Safe Prompt extension was reloaded. Refresh this page to reconnect dashboard stats.");
+      showReconnectNotice();
     } else {
       console.warn("AI Safe Prompt API unavailable, using local fallback:", err.message);
     }
@@ -309,6 +437,99 @@ function showPrivacyToast(count, risk) {
 
   document.documentElement.appendChild(toast);
   setTimeout(() => toast.remove(), 2600);
+}
+
+function showReconnectNotice() {
+  if (hasShownReconnectNotice) return;
+  hasShownReconnectNotice = true;
+
+  const notice = document.createElement("div");
+  notice.id = "ai-safe-prompt-reconnect";
+  notice.textContent = "AI Safe Prompt was reloaded. Refresh this page to reconnect dashboard counting.";
+  notice.style.cssText = `
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 2147483647;
+    background: #13251f;
+    color: #ffffff;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font: 13px/1.4 Arial, sans-serif;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    max-width: 320px;
+  `;
+
+  document.documentElement.appendChild(notice);
+  setTimeout(() => notice.remove(), 5200);
+}
+
+function recordPendingPrivacyStats(protectedItems) {
+  try {
+    const existing = JSON.parse(window.localStorage.getItem(PENDING_PRIVACY_STATS_KEY) || "{}");
+    const nextStats = buildNextPrivacyStats(existing, protectedItems);
+    window.localStorage.setItem(PENDING_PRIVACY_STATS_KEY, JSON.stringify(nextStats));
+  } catch (err) {
+    console.debug("AI Safe Prompt could not write pending dashboard stats:", err.message);
+  }
+}
+
+function estimateProtectedItemCount(originalText, maskedText) {
+  if (!originalText || originalText === maskedText) return 0;
+
+  const placeholderMatches = maskedText.match(
+    /\[[A-Z_]+_REDACTED\]|\buser_\d{3}@example\.test\b|\+91 900000\d{4}\b|\b10\.0\.0\.\d+\b|https:\/\/example\.test\/resource\/\d{3}\b|\b4111 1111 1111 \d{4}\b|\bID_\d{3}\b|\bPerson_\d{3}\b/g
+  );
+
+  if (placeholderMatches?.length) {
+    return placeholderMatches.length;
+  }
+
+  const localPatterns = [
+    /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
+    /\b(\+?\d{1,3}[\s-]?)?[6-9]\d{9}\b/g,
+    /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g,
+    /\bhttps?:\/\/[^\s<>'")]+/gi,
+    /\b(?:password|passwd|pwd|api[_-]?key|apikey|token|client[_-]?secret|secret|credential|auth)\s*[:=]\s*[^\s,;}\]"'`]+/gi,
+    /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g
+  ];
+
+  const estimated = localPatterns.reduce((total, pattern) => {
+    return total + (originalText.match(pattern)?.length || 0);
+  }, 0);
+
+  return Math.max(1, estimated);
+}
+
+async function recordProtectedData(originalText, maskedText) {
+  if (!originalText || originalText === maskedText) return;
+
+  const protectedItems = estimateProtectedItemCount(originalText, maskedText);
+
+  if (!isChromeAvailable()) {
+    recordPendingPrivacyStats(protectedItems);
+    showReconnectNotice();
+    return;
+  }
+
+  try {
+    const stored = await getStorage(["privacyStats"]);
+    const existing = stored.privacyStats || {};
+    const nextStats = buildNextPrivacyStats(existing, protectedItems);
+
+    await setStorage({ privacyStats: nextStats });
+    if (!isStorageConnected) {
+      recordPendingPrivacyStats(protectedItems);
+      showReconnectNotice();
+    }
+  } catch (err) {
+    if (!isExtensionContextError(err)) {
+      console.warn("AI Safe Prompt privacy stats update failed:", err.message);
+    } else {
+      recordPendingPrivacyStats(protectedItems);
+      showReconnectNotice();
+    }
+  }
 }
 
 function showPromptSecuredAnimation() {
@@ -538,6 +759,7 @@ document.addEventListener(
     }, 50);
 
     if (masked !== text) {
+      await recordProtectedData(text, masked);
       showPromptSecuredAnimation();
     }
   },
@@ -566,6 +788,7 @@ document.addEventListener(
       lastScannedValue = masked;
       await replaceWholeEditableValue(target, latestText, masked);
       if (masked !== latestText) {
+        await recordProtectedData(latestText, masked);
         showPromptSecuredAnimation();
       }
     }, SCAN_DEBOUNCE_MS);
