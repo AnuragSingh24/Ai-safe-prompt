@@ -12,6 +12,7 @@ const DailyCoins = require("./models/DailyCoins");
 // const Payment = require("./models/Payment");
 const Payout = require("./models/Payout");
 const BugReport = require("./models/BugReport");
+const PrivacyStats = require("./models/PrivacyStats");
 
 const app = express();
 app.use(cors());
@@ -47,6 +48,36 @@ mongoose.connect(MONGODB_URI, {
 // ================= HELPER FUNCTIONS =================
 function getTodayDate() {
   return new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+}
+
+function sanitizeCount(value) {
+  const count = Number(value);
+  if (!Number.isFinite(count) || count <= 0) return 0;
+  return Math.min(Math.floor(count), 10000);
+}
+
+function formatPrivacyStats(stats, today = getTodayDate()) {
+  if (!stats) {
+    return {
+      date: today,
+      todayItems: 0,
+      todayPrompts: 0,
+      totalItems: 0,
+      totalPrompts: 0,
+      lastProtectedAt: null
+    };
+  }
+
+  const isToday = stats.date === today;
+
+  return {
+    date: today,
+    todayItems: isToday ? stats.todayItems || 0 : 0,
+    todayPrompts: isToday ? stats.todayPrompts || 0 : 0,
+    totalItems: stats.totalItems || 0,
+    totalPrompts: stats.totalPrompts || 0,
+    lastProtectedAt: stats.lastProtectedAt ? stats.lastProtectedAt.toISOString() : null
+  };
 }
 
 // ================= GOOGLE AUTH =================
@@ -253,6 +284,78 @@ app.get("/api/bug-reports", verifyJWT, async (req, res) => {
   } catch (err) {
     console.error("Fetch bug reports error:", err);
     res.status(500).json({ error: "Failed to fetch bug reports" });
+  }
+});
+
+// ================= PRIVACY DASHBOARD STATS =================
+app.get("/api/privacy-stats", verifyJWT, async (req, res) => {
+  try {
+    const userId = req.user.googleId;
+    const stats = await PrivacyStats.findOne({ userId });
+
+    res.json({
+      success: true,
+      privacyStats: formatPrivacyStats(stats)
+    });
+  } catch (err) {
+    console.error("Fetch privacy stats error:", err);
+    res.status(500).json({ error: "Failed to fetch privacy stats" });
+  }
+});
+
+app.post("/api/privacy-stats/sync", verifyJWT, async (req, res) => {
+  try {
+    const userId = req.user.googleId;
+    const today = getTodayDate();
+    const items = sanitizeCount(req.body.items);
+    const prompts = sanitizeCount(req.body.prompts);
+    const lastProtectedAt = req.body.lastProtectedAt ? new Date(req.body.lastProtectedAt) : new Date();
+
+    if (!items && !prompts) {
+      const existingStats = await PrivacyStats.findOne({ userId });
+      return res.json({
+        success: true,
+        privacyStats: formatPrivacyStats(existingStats, today)
+      });
+    }
+
+    let stats = await PrivacyStats.findOne({ userId });
+
+    if (!stats) {
+      stats = new PrivacyStats({
+        userId,
+        email: req.user.email,
+        date: today
+      });
+    }
+
+    if (stats.date !== today) {
+      stats.date = today;
+      stats.todayItems = 0;
+      stats.todayPrompts = 0;
+    }
+
+    stats.email = req.user.email;
+    stats.todayItems += items;
+    stats.todayPrompts += prompts;
+    stats.totalItems += items;
+    stats.totalPrompts += prompts;
+
+    if (!Number.isNaN(lastProtectedAt.getTime())) {
+      stats.lastProtectedAt = lastProtectedAt;
+    } else {
+      stats.lastProtectedAt = new Date();
+    }
+
+    await stats.save();
+
+    res.json({
+      success: true,
+      privacyStats: formatPrivacyStats(stats, today)
+    });
+  } catch (err) {
+    console.error("Sync privacy stats error:", err);
+    res.status(500).json({ error: "Failed to sync privacy stats" });
   }
 });
 
