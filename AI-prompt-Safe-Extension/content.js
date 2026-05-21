@@ -1,12 +1,15 @@
 console.log("AI Safe Prompt Loaded");
 
+const NODE_API_BASE_URL = "https://ai-safe-prompt.onrender.com";
 const PRIVACY_API_URLS = [
   "https://ai-safe-prompt-python-backend.onrender.com/api/scan"
 ];
 const SCAN_DEBOUNCE_MS = 450;
 const PRIVACY_API_TIMEOUT_MS = 8000;
 const MAX_LIVE_SCAN_CHARS = 12000;
+const ENABLE_REMOTE_PRIVACY_API = false;
 const PENDING_PRIVACY_STATS_KEY = "aiSafePromptPendingPrivacyStats";
+const PRIVACY_SYNC_KEY = "privacyStatsSynced";
 const REMOTE_INPUT_SCAN_RE =
   /(@|https?:\/\/|-----BEGIN |\bsk-[A-Za-z0-9_-]{16,}|\b(?:password|passwd|pwd|api[_-]?key|apikey|token|secret|credential|auth|bearer|address|street|road|avenue|lives\s+at|resides\s+at)\b|\b\+?\d[\d\s-]{8,}\d\b)/i;
 
@@ -236,7 +239,7 @@ async function scanWithPrivacyApi(text, mode = "paste") {
 async function maskSensitiveData(text, mode = "paste") {
   const preApiMasked = maskBeforeModelLocally(text);
 
-  if (!shouldUseRemotePrivacyApi(text, mode)) {
+  if (preApiMasked !== text || !shouldUseRemotePrivacyApi(text, mode)) {
     return preApiMasked;
   }
 
@@ -265,6 +268,7 @@ async function maskSensitiveData(text, mode = "paste") {
 }
 
 function shouldUseRemotePrivacyApi(text, mode) {
+  if (!ENABLE_REMOTE_PRIVACY_API) return false;
   if (mode === "paste") return true;
   return text.length >= 12 && REMOTE_INPUT_SCAN_RE.test(text);
 }
@@ -501,10 +505,56 @@ function estimateProtectedItemCount(originalText, maskedText) {
   return Math.max(1, estimated);
 }
 
+async function syncPrivacyStatsToBackend(protectedItems, lastProtectedAt) {
+  const stored = await getStorage(["jwtToken"]);
+  if (!stored.jwtToken) return null;
+
+  const response = await fetch(`${NODE_API_BASE_URL}/api/privacy-stats/sync`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${stored.jwtToken}`
+    },
+    body: JSON.stringify({
+      items: protectedItems,
+      prompts: 1,
+      lastProtectedAt
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Privacy stats sync failed with ${response.status}`);
+  }
+
+  const result = await response.json();
+  const backendStats = result.privacyStats;
+
+  if (backendStats) {
+    await setStorage({
+      privacyStats: backendStats,
+      [PRIVACY_SYNC_KEY]: {
+        totalItems: backendStats.totalItems || 0,
+        totalPrompts: backendStats.totalPrompts || 0
+      }
+    });
+  }
+
+  return backendStats || null;
+}
+
+function syncPrivacyStatsToBackendSoon(protectedItems, lastProtectedAt) {
+  setTimeout(() => {
+    syncPrivacyStatsToBackend(protectedItems, lastProtectedAt).catch((err) => {
+      console.warn("AI Safe Prompt backend stats sync failed:", err.message);
+    });
+  }, 0);
+}
+
 async function recordProtectedData(originalText, maskedText) {
   if (!originalText || originalText === maskedText) return;
 
   const protectedItems = estimateProtectedItemCount(originalText, maskedText);
+  const protectedAt = new Date();
 
   if (!isChromeAvailable()) {
     recordPendingPrivacyStats(protectedItems);
@@ -515,13 +565,16 @@ async function recordProtectedData(originalText, maskedText) {
   try {
     const stored = await getStorage(["privacyStats"]);
     const existing = stored.privacyStats || {};
-    const nextStats = buildNextPrivacyStats(existing, protectedItems);
+    const nextStats = buildNextPrivacyStats(existing, protectedItems, protectedAt);
 
     await setStorage({ privacyStats: nextStats });
     if (!isStorageConnected) {
       recordPendingPrivacyStats(protectedItems);
       showReconnectNotice();
+      return;
     }
+
+    syncPrivacyStatsToBackendSoon(protectedItems, protectedAt.toISOString());
   } catch (err) {
     if (!isExtensionContextError(err)) {
       console.warn("AI Safe Prompt privacy stats update failed:", err.message);
@@ -759,8 +812,10 @@ document.addEventListener(
     }, 50);
 
     if (masked !== text) {
-      await recordProtectedData(text, masked);
       showPromptSecuredAnimation();
+      recordProtectedData(text, masked).catch((err) => {
+        console.warn("AI Safe Prompt privacy stats update failed:", err.message);
+      });
     }
   },
   true
@@ -786,10 +841,12 @@ document.addEventListener(
 
       const masked = await maskSensitiveData(latestText, "input");
       lastScannedValue = masked;
-      await replaceWholeEditableValue(target, latestText, masked);
+      replaceWholeEditableValue(target, latestText, masked);
       if (masked !== latestText) {
-        await recordProtectedData(latestText, masked);
         showPromptSecuredAnimation();
+        recordProtectedData(latestText, masked).catch((err) => {
+          console.warn("AI Safe Prompt privacy stats update failed:", err.message);
+        });
       }
     }, SCAN_DEBOUNCE_MS);
   },
