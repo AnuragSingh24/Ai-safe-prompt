@@ -12,6 +12,13 @@ const PENDING_PRIVACY_STATS_KEY = "aiSafePromptPendingPrivacyStats";
 const PRIVACY_SYNC_KEY = "privacyStatsSynced";
 const REMOTE_INPUT_SCAN_RE =
   /(@|https?:\/\/|-----BEGIN |\bsk-[A-Za-z0-9_-]{16,}|\b(?:password|passwd|pwd|api[_-]?key|apikey|token|secret|credential|auth|bearer|address|street|road|avenue|lives\s+at|resides\s+at)\b|\b\+?\d[\d\s-]{8,}\d\b)/i;
+const PHONE_IN_RE = /(?<!\d)(?:\+?91[\s-]?)?[6-9](?:[\s-]?\d){9}(?![\s-]?\d)/g;
+const ADDRESS_STREET_SUFFIX_PATTERN = String.raw`(?:[Ss]treet|[Ss]t\.?|[Rr]oad|[Rr]d\.?|[Aa]venue|[Aa]ve\.?|[Bb]oulevard|[Bb]lvd\.?|[Ll]ane|[Ll]n\.?|[Dd]rive|[Dd]r\.?|[Cc]ourt|[Cc]t\.?|[Cc]ircle|[Cc]ir\.?|[Ww]ay|[Pp]lace|[Pp]l\.?|[Tt]errace|[Tt]er\.?)`;
+const NUMBERED_ADDRESS_VALUE_PATTERN = String.raw`\d{1,6}[A-Za-z]?\s+(?:[A-Z][\w.'-]*\s+){1,6}${ADDRESS_STREET_SUFFIX_PATTERN}\b(?:,\s*[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,2}){0,2}(?:\s+\d{5}(?:-\d{4})?)?`;
+const CONTEXT_ADDRESS_VALUE_PATTERN = String.raw`(?:\d{1,6}[A-Za-z]?\s+)?(?:[A-Z][\w.'-]*\s+){1,6}${ADDRESS_STREET_SUFFIX_PATTERN}\b(?:,\s*[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,2}){0,2}(?:\s+\d{5}(?:-\d{4})?)?`;
+const ADDRESS_CONTEXT_RE = new RegExp(String.raw`\b((?:[Ll]ives|[Rr]esides|[Ss]tays|[Ll]ocated)\s+at)\s+(${CONTEXT_ADDRESS_VALUE_PATTERN})`, "g");
+const ADDRESS_LABEL_RE = new RegExp(String.raw`\b((?:home_|shipping_|billing_)?address|street_address)\s*([:=])\s*(["'\`]?)(?:(${CONTEXT_ADDRESS_VALUE_PATTERN})|([^"'\`\n;]{8,160}))(["'\`]?)`, "g");
+const ADDRESS_INLINE_RE = new RegExp(String.raw`\b(${NUMBERED_ADDRESS_VALUE_PATTERN})`, "g");
 
 let extensionEnabled = true;
 let isUpdating = false;
@@ -282,9 +289,9 @@ function isExpectedPrivacyApiFallback(err) {
 function maskBeforeModelLocally(text) {
   const registry = createLocalMaskRegistry();
 
-  return maskHighRiskSecretsLocally(text)
+  return maskAddressesLocally(maskHighRiskSecretsLocally(text), registry)
     .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, value => registry.next("email", value))
-    .replace(/\b(\+?\d{1,3}[\s-]?)?[6-9]\d{9}\b/g, value => registry.next("phone", value))
+    .replace(PHONE_IN_RE, value => registry.next("phone", value))
     .replace(/\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g, value => registry.next("ip", value))
     .replace(/\bhttps?:\/\/[^\s<>'")]+/gi, value => registry.next("url", value))
     .replace(/\b(?:\d[ -]*?){13,19}\b/g, value => isLikelyCreditCard(value) ? registry.next("card", value) : value)
@@ -299,6 +306,22 @@ function maskBeforeModelLocally(text) {
       /\b(name|full_name|owner|maintainer|developer|reviewer)\s*([:=])\s*(["'`]?)([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})(["'`]?)/g,
       (match, label, operator, openQuote, value, closeQuote) => `${label}${operator}${openQuote}${registry.next("person", value)}${closeQuote}`
     );
+}
+
+function maskAddressesLocally(text, registry) {
+  return text
+    .replace(
+      ADDRESS_CONTEXT_RE,
+      (match, prefix, value) => `${prefix} ${registry.next("address", value)}`
+    )
+    .replace(
+      ADDRESS_LABEL_RE,
+      (match, label, operator, openQuote, streetAddress, looseAddress, closeQuote) => {
+        const value = streetAddress || looseAddress;
+        return `${label}${operator}${openQuote}${registry.next("address", value)}${closeQuote}`;
+      }
+    )
+    .replace(ADDRESS_INLINE_RE, value => registry.next("address", value));
 }
 
 function maskHighRiskSecretsLocally(text) {
@@ -373,6 +396,7 @@ function createLocalMaskRegistry() {
       else if (type === "card") replacement = `4111 1111 1111 ${String(number).padStart(4, "0")}`;
       else if (type === "id") replacement = `ID_${padded(number)}`;
       else if (type === "person") replacement = `Person_${padded(number)}`;
+      else if (type === "address") replacement = `Address_${padded(number)}`;
       else replacement = `[${type.toUpperCase()}_REDACTED]`;
 
       mappings[key] = replacement;
@@ -482,7 +506,7 @@ function estimateProtectedItemCount(originalText, maskedText) {
   if (!originalText || originalText === maskedText) return 0;
 
   const placeholderMatches = maskedText.match(
-    /\[[A-Z_]+_REDACTED\]|\buser_\d{3}@example\.test\b|\+91 900000\d{4}\b|\b10\.0\.0\.\d+\b|https:\/\/example\.test\/resource\/\d{3}\b|\b4111 1111 1111 \d{4}\b|\bID_\d{3}\b|\bPerson_\d{3}\b/g
+    /\[[A-Z_]+_REDACTED\]|\buser_\d{3}@example\.test\b|\+91 900000\d{4}\b|\b10\.0\.0\.\d+\b|https:\/\/example\.test\/resource\/\d{3}\b|\b4111 1111 1111 \d{4}\b|\bID_\d{3}\b|\bPerson_\d{3}\b|\bAddress_\d{3}\b/g
   );
 
   if (placeholderMatches?.length) {
@@ -491,7 +515,10 @@ function estimateProtectedItemCount(originalText, maskedText) {
 
   const localPatterns = [
     /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
-    /\b(\+?\d{1,3}[\s-]?)?[6-9]\d{9}\b/g,
+    PHONE_IN_RE,
+    ADDRESS_CONTEXT_RE,
+    ADDRESS_LABEL_RE,
+    ADDRESS_INLINE_RE,
     /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g,
     /\bhttps?:\/\/[^\s<>'")]+/gi,
     /\b(?:password|passwd|pwd|api[_-]?key|apikey|token|client[_-]?secret|secret|credential|auth)\s*[:=]\s*[^\s,;}\]"'`]+/gi,

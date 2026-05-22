@@ -55,7 +55,12 @@ PATTERNS: tuple[tuple[str, re.Pattern[str], str, float], ...] = (
         0.9,
     ),
     ("EMAIL", re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.I), "medium", 0.85),
-    ("PHONE_IN", re.compile(r"\b(?:\+?91[\s-]?)?[6-9]\d{9}\b"), "medium", 0.85),
+    (
+        "PHONE_IN",
+        re.compile(r"(?<!\d)(?:\+?91[\s-]?)?[6-9](?:[\s-]?\d){9}(?![\s-]?\d)"),
+        "medium",
+        0.85,
+    ),
     (
         "ADDRESS",
         re.compile(
@@ -73,7 +78,8 @@ PATTERNS: tuple[tuple[str, re.Pattern[str], str, float], ...] = (
             r"((?:\d{1,6}[A-Za-z]?\s+)?(?:(?-i:[A-Z])[\w.'-]*\s+){1,6}"
             r"(?:Street|St\.?|Road|Rd\.?|Avenue|Ave\.?|Boulevard|Blvd\.?|Lane|Ln\.?|"
             r"Drive|Dr\.?|Court|Ct\.?|Circle|Cir\.?|Way|Place|Pl\.?|Terrace|Ter\.?)"
-            r"\b(?:,\s*(?-i:[A-Z])[A-Za-z .'-]{1,40}){0,2}(?:\s+\d{5}(?:-\d{4})?)?)",
+            r"\b(?:,\s*(?-i:[A-Z])[A-Za-z.'-]*(?:\s+(?-i:[A-Z])[A-Za-z.'-]*){0,2}){0,2}"
+            r"(?:\s+\d{5}(?:-\d{4})?)?)",
             re.I,
         ),
         "medium",
@@ -85,7 +91,8 @@ PATTERNS: tuple[tuple[str, re.Pattern[str], str, float], ...] = (
             r"\b\d{1,6}[A-Za-z]?\s+(?:(?-i:[A-Z])[\w.'-]*\s+){1,6}"
             r"(?:Street|St\.?|Road|Rd\.?|Avenue|Ave\.?|Boulevard|Blvd\.?|Lane|Ln\.?|"
             r"Drive|Dr\.?|Court|Ct\.?|Circle|Cir\.?|Way|Place|Pl\.?|Terrace|Ter\.?)"
-            r"\b(?:,\s*(?-i:[A-Z])[A-Za-z .'-]{1,40}){0,2}(?:\s+\d{5}(?:-\d{4})?)?",
+            r"\b(?:,\s*(?-i:[A-Z])[A-Za-z.'-]*(?:\s+(?-i:[A-Z])[A-Za-z.'-]*){0,2}){0,2}"
+            r"(?:\s+\d{5}(?:-\d{4})?)?",
             re.I,
         ),
         "medium",
