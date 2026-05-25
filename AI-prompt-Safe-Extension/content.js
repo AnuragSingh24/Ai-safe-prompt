@@ -11,7 +11,7 @@ const ENABLE_REMOTE_PRIVACY_API = false;
 const PENDING_PRIVACY_STATS_KEY = "aiSafePromptPendingPrivacyStats";
 const PRIVACY_SYNC_KEY = "privacyStatsSynced";
 const REMOTE_INPUT_SCAN_RE =
-  /(@|https?:\/\/|-----BEGIN |\bsk-[A-Za-z0-9_-]{16,}|\b(?:password|passwd|pwd|api[_-]?key|apikey|token|secret|credential|auth|bearer|address|street|road|avenue|lives\s+at|resides\s+at)\b|\b\+?\d[\d\s-]{8,}\d\b)/i;
+  /(@|https?:\/\/|-----BEGIN |\bsk-[A-Za-z0-9_-]{16,}|\b(?:[A-Za-z][A-Za-z0-9_-]*[_-](?:password|passwd|pwd|api[_-]?key|apikey|token|secret|credential|auth)|password|passwd|pwd|api[_-]?key|apikey|token|secret|credential|auth|bearer|address|street|road|avenue|lives\s+at|resides\s+at)\b|\b\+?\d[\d\s-]{8,}\d\b)/i;
 const PHONE_IN_RE = /(?<!\d)(?:\+?91[\s-]?)?[6-9](?:[\s-]?\d){9}(?![\s-]?\d)/g;
 const ADDRESS_STREET_SUFFIX_PATTERN = String.raw`(?:[Ss]treet|[Ss]t\.?|[Rr]oad|[Rr]d\.?|[Aa]venue|[Aa]ve\.?|[Bb]oulevard|[Bb]lvd\.?|[Ll]ane|[Ll]n\.?|[Dd]rive|[Dd]r\.?|[Cc]ourt|[Cc]t\.?|[Cc]ircle|[Cc]ir\.?|[Ww]ay|[Pp]lace|[Pp]l\.?|[Tt]errace|[Tt]er\.?)`;
 const NUMBERED_ADDRESS_VALUE_PATTERN = String.raw`\d{1,6}[A-Za-z]?\s+(?:[A-Z][\w.'-]*\s+){1,6}${ADDRESS_STREET_SUFFIX_PATTERN}\b(?:,\s*[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,2}){0,2}(?:\s+\d{5}(?:-\d{4})?)?`;
@@ -327,11 +327,11 @@ function maskAddressesLocally(text, registry) {
 function maskHighRiskSecretsLocally(text) {
   return text
     .replace(
-      /"(password|token|api_key|apikey|client_secret|secret|credential|auth)"\s*:\s*"([^"]*)"/gi,
+      /"([A-Za-z][A-Za-z0-9_-]*[_-](?:password|passwd|pwd|api[_-]?key|apikey|token|client[_-]?secret|secret|credential|auth)|password|passwd|pwd|token|api_key|apikey|client_secret|secret|credential|auth)"\s*:\s*"([^"]*)"/gi,
       (match, key) => `"${key}": "${secretPlaceholderForKey(key)}"`
     )
     .replace(
-      /'(password|token|api_key|apikey|client_secret|secret|credential|auth)'\s*:\s*'([^']*)'/gi,
+      /'([A-Za-z][A-Za-z0-9_-]*[_-](?:password|passwd|pwd|api[_-]?key|apikey|token|client[_-]?secret|secret|credential|auth)|password|passwd|pwd|token|api_key|apikey|client_secret|secret|credential|auth)'\s*:\s*'([^']*)'/gi,
       (match, key) => `'${key}': '${secretPlaceholderForKey(key)}'`
     )
     .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, "[PRIVATE_KEY_REDACTED]")
@@ -343,19 +343,19 @@ function maskHighRiskSecretsLocally(text) {
     .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_+/=-]+\b/g, "[JWT_REDACTED]")
     .replace(/\bBearer\s+[A-Za-z0-9\-._~+/]+=*/gi, "Bearer [TOKEN_REDACTED]")
     .replace(
-      /\b(password|passwd|pwd)\s*([:=])\s*(["'`])([^"'`\s,;}\]]+)\3/gi,
+      /\b([A-Za-z][A-Za-z0-9_-]*[_-](?:password|passwd|pwd)|password|passwd|pwd)\s*([:=])\s*(["'`])([^"'`\s,;}\]]+)\3/gi,
       (match, key, operator, quote) => `${key}${operator}${quote}[PASSWORD_REDACTED]${quote}`
     )
     .replace(
-      /\b(password|passwd|pwd)\s*([:=])\s*([^\s,;}\]"'`]+)/gi,
+      /\b([A-Za-z][A-Za-z0-9_-]*[_-](?:password|passwd|pwd)|password|passwd|pwd)\s*([:=])\s*([^\s,;}\]"'`]+)/gi,
       (match, key, operator) => `${key}${operator}[PASSWORD_REDACTED]`
     )
     .replace(
-      /\b(api[_-]?key|apikey|token|client[_-]?secret|secret|credential|auth)\s*([:=])\s*(["'`])([^"'`\s,;}\]]{8,})\3/gi,
+      /\b([A-Za-z][A-Za-z0-9_-]*[_-](?:api[_-]?key|apikey|token|client[_-]?secret|secret|credential|auth)|api[_-]?key|apikey|token|client[_-]?secret|secret|credential|auth)\s*([:=])\s*(["'`])([^"'`\s,;}\]]{8,})\3/gi,
       (match, key, operator, quote) => `${key}${operator}${quote}${secretPlaceholderForKey(key)}${quote}`
     )
     .replace(
-      /\b(api[_-]?key|apikey|token|client[_-]?secret|secret|credential|auth)\s*([:=])\s*([^\s,;}\]"'`]{8,})/gi,
+      /\b([A-Za-z][A-Za-z0-9_-]*[_-](?:api[_-]?key|apikey|token|client[_-]?secret|secret|credential|auth)|api[_-]?key|apikey|token|client[_-]?secret|secret|credential|auth)\s*([:=])\s*([^\s,;}\]"'`]{8,})/gi,
       (match, key, operator) => `${key}${operator}${secretPlaceholderForKey(key)}`
     )
     .replace(
@@ -521,7 +521,7 @@ function estimateProtectedItemCount(originalText, maskedText) {
     ADDRESS_INLINE_RE,
     /\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g,
     /\bhttps?:\/\/[^\s<>'")]+/gi,
-    /\b(?:password|passwd|pwd|api[_-]?key|apikey|token|client[_-]?secret|secret|credential|auth)\s*[:=]\s*[^\s,;}\]"'`]+/gi,
+    /\b(?:[A-Za-z][A-Za-z0-9_-]*[_-](?:password|passwd|pwd|api[_-]?key|apikey|token|client[_-]?secret|secret|credential|auth)|password|passwd|pwd|api[_-]?key|apikey|token|client[_-]?secret|secret|credential|auth)\s*[:=]\s*[^\s,;}\]"'`]+/gi,
     /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g
   ];
 

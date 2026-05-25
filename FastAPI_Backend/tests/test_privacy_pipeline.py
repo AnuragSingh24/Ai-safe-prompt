@@ -101,6 +101,17 @@ class PrivacyPipelineTests(unittest.TestCase):
         self.assertIn("JSON_SECRET", entity_types)
         self.assertIn("EMAIL", entity_types)
 
+    def test_env_style_password_is_detected_in_layer_one(self):
+        text = "EMAIL_PASSWORD=myemailpassword"
+
+        detections = scan_normal_masking(text)
+        result = scan_prompt_text(text)
+
+        self.assertEqual(detections[0].type, "PASSWORD_ASSIGNMENT")
+        self.assertEqual(detections[0].value, "myemailpassword")
+        self.assertEqual(result.masked_text, "EMAIL_PASSWORD=[PASSWORD_REDACTED]")
+        self.assertEqual(result.layers[0]["detection_count"], 1)
+
     def test_presidio_locations_are_not_masked(self):
         text = "Alice Johnson lives in Mumbai and uses alice@example.com."
 

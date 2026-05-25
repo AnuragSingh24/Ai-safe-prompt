@@ -32,14 +32,20 @@ PATTERNS: tuple[tuple[str, re.Pattern[str], str, float], ...] = (
     ("BEARER_TOKEN", re.compile(r"\bBearer\s+[A-Za-z0-9\-._~+/]+=*", re.I), "critical", 0.95),
     (
         "PASSWORD_ASSIGNMENT",
-        re.compile(r"\b(password|passwd|pwd)\s*[:=]\s*[\"'`]?([^,\s;}\]\"'`]+)[\"'`]?", re.I),
+        re.compile(
+            r"\b([A-Za-z][A-Za-z0-9_-]*[_-](?:password|passwd|pwd)|password|passwd|pwd)"
+            r"\s*[:=]\s*[\"'`]?([^,\s;}\]\"'`]+)[\"'`]?",
+            re.I,
+        ),
         "critical",
         0.9,
     ),
     (
         "SECRET_ASSIGNMENT",
         re.compile(
-            r"\b(api[_-]?key|token|client[_-]?secret|secret|credential|auth)\s*[:=]\s*[\"'`]?([^,\s;}\]\"'`]+)[\"'`]?",
+            r"\b([A-Za-z][A-Za-z0-9_-]*[_-](?:api[_-]?key|apikey|token|client[_-]?secret|secret|credential|auth)|"
+            r"api[_-]?key|apikey|token|client[_-]?secret|secret|credential|auth)"
+            r"\s*[:=]\s*[\"'`]?([^,\s;}\]\"'`]+)[\"'`]?",
             re.I,
         ),
         "critical",
